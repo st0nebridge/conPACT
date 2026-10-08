@@ -1,0 +1,37 @@
+# Dependencies / build / secrets (baseline)
+node_modules/
+vendor/
+dist/
+build/
+.env
+.env.*
+.DS_Store
+*.log
+tmp/
+cache/
+secrets/
+
+# Credentials must never be committed (token_store reads/writes these)
+.credentials.json
+*.credentials.json
+*.tmp
+
+# Python
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.coverage
+.coverage.*
+htmlcov/
+*.egg-info/
+.venv/
+
+# Claude Code per-user local settings
+.claude/settings.local.json
+*.stackdump
+
+# Codex sidecar: built artifact and per-machine install marker
+src/sidecar/codex_sidecar.exe
+src/sidecar/codex_sidecar
+src/sidecar/launcher.txt
+src/sidecar/real-codex.txt

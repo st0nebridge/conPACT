@@ -1,0 +1,58 @@
+# conPACT — packaging metadata.
+#
+# The tools in tools/ and the Stop hook still run straight from a checkout (they
+# put src/ on sys.path themselves), so nothing here is required to use conPACT.
+# It is here so the package can be installed like any other - `pip install -e .`
+# during development, or a plain install on a machine that only runs it - and so
+# the one hard requirement, the Python version, is stated rather than discovered.
+#
+# There are no runtime dependencies and that is deliberate: everything conPACT
+# does - the WebSocket client, the Tk windows, the JSON-RPC transports, the
+# registry and plist writers - is stdlib, so it runs wherever Python does and
+# there is no supply chain to audit.
+[build-system]
+# 77 is the first setuptools that reads `license` as a plain SPDX expression
+# with `license-files`; 76 and earlier reject this file outright.
+requires = ["setuptools>=77"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "conpact"
+description = "Agent-initiated context compaction for Claude Code and ChatGPT Desktop"
+readme = "README.md"
+license = "MIT"
+license-files = ["LICENSE"]
+requires-python = ">=3.11"          # the version conPACT is developed and tested on
+dynamic = ["version"]
+dependencies = []
+keywords = ["claude-code", "codex", "chatgpt", "compaction", "mcp"]
+classifiers = [
+    "Environment :: Console",
+    "Intended Audience :: Developers",
+    "Operating System :: Microsoft :: Windows",
+    "Operating System :: MacOS",
+    "Operating System :: POSIX :: Linux",
+    "Programming Language :: Python :: 3",
+    "Topic :: Software Development :: Build Tools",
+]
+
+[project.scripts]
+conpact = "conpact.cli:main"
+conpact-settings = "conpact.settings_cli:main"
+conpact-mcp = "conpact.mcp_server:main"
+conpact-codex-remote = "conpact.codex_remote_cli:main"
+conpact-codex = "conpact.codex_cli:main"
+conpact-sidecar = "conpact.codex_sidecar_window:main"
+
+[tool.setuptools.dynamic]
+version = {attr = "conpact.__version__"}
+
+[tool.setuptools]
+packages = ["conpact", "conpact.sidecar_resources"]
+
+[tool.setuptools.package-dir]
+conpact = "src/conpact"
+"conpact.sidecar_resources" = "src/sidecar"
+
+[tool.setuptools.package-data]
+"conpact.sidecar_resources" = ["build.cmd", "codex_launcher.c"]

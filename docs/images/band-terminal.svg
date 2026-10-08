@@ -1,0 +1,26 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="872" height="132" viewBox="0 0 872 132" role="img" aria-label="Claude Code in a terminal: conPACT's band above the prompt after a compaction">
+<title>Claude Code in a terminal: conPACT's band above the prompt after a compaction</title>
+<rect width="100%" height="100%" rx="8" fill="#1e1e1e"/>
+<g font-family="Cascadia Mono, Consolas, Menlo, 'DejaVu Sans Mono', monospace" font-size="14" xml:space="preserve">
+<text x="16.0" y="30" fill="#4eba65" font-weight="bold" textLength="8.4" lengthAdjust="spacingAndGlyphs">✓</text>
+<text x="32.8" y="30" fill="#4eba65" font-weight="bold" textLength="58.8" lengthAdjust="spacingAndGlyphs">conPACT</text>
+<text x="100.0" y="30" fill="#e6e6e6" font-weight="bold" textLength="50.4" lengthAdjust="spacingAndGlyphs">285.4k</text>
+<text x="158.8" y="30" fill="#e6e6e6" font-weight="bold" textLength="8.4" lengthAdjust="spacingAndGlyphs">→</text>
+<text x="175.6" y="30" fill="#e6e6e6" font-weight="bold" textLength="42.0" lengthAdjust="spacingAndGlyphs">18.6k</text>
+<text x="226.0" y="30" fill="#4eba65" textLength="8.4" lengthAdjust="spacingAndGlyphs">━</text>
+<text x="234.4" y="30" fill="#999999" textLength="126.0" lengthAdjust="spacingAndGlyphs">───────────────</text>
+<text x="368.8" y="30" fill="#4eba65" textLength="50.4" lengthAdjust="spacingAndGlyphs">−93.5%</text>
+<text x="427.6" y="30" fill="#999999" textLength="16.8" lengthAdjust="spacingAndGlyphs">1m</text>
+<text x="452.8" y="30" fill="#999999" textLength="25.2" lengthAdjust="spacingAndGlyphs">25s</text>
+<text x="805.6" y="30" fill="#999999" textLength="8.4" lengthAdjust="spacingAndGlyphs">×</text>
+<text x="822.4" y="30" fill="#999999" textLength="25.2" lengthAdjust="spacingAndGlyphs">[-]</text>
+<text x="16.0" y="70" fill="#888888" textLength="840.0" lengthAdjust="spacingAndGlyphs">────────────────────────────────────────────────────────────────────────────────────────────────────</text>
+<text x="16.0" y="90" fill="#e6e6e6" textLength="8.4" lengthAdjust="spacingAndGlyphs">❯</text>
+<text x="32.8" y="90" fill="#e6e6e6" textLength="25.2" lengthAdjust="spacingAndGlyphs">Try</text>
+<text x="66.4" y="90" fill="#e6e6e6" textLength="50.4" lengthAdjust="spacingAndGlyphs">"write</text>
+<text x="125.2" y="90" fill="#e6e6e6" textLength="8.4" lengthAdjust="spacingAndGlyphs">a</text>
+<text x="142.0" y="90" fill="#e6e6e6" textLength="33.6" lengthAdjust="spacingAndGlyphs">test</text>
+<text x="184.0" y="90" fill="#e6e6e6" textLength="25.2" lengthAdjust="spacingAndGlyphs">for</text>
+<text x="217.6" y="90" fill="#e6e6e6" textLength="92.4" lengthAdjust="spacingAndGlyphs">&lt;filepath&gt;"</text>
+<text x="16.0" y="110" fill="#888888" textLength="840.0" lengthAdjust="spacingAndGlyphs">────────────────────────────────────────────────────────────────────────────────────────────────────</text>
+</g></svg>

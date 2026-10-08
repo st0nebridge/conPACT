@@ -1,0 +1,306 @@
+"""
+@module conpact.codex_sidecar_install
+@description Put the Codex sidecar shim in the desktop's path, and take it out
+             again, in one action per direction. The desktop resolves its
+             app-server through `CODEX_CLI_PATH` ahead of the bundled binary, so
+             installing is four reversible steps: make sure the shim exists,
+             name the real codex in a marker beside it (so our own tooling
+             resolves through it rather than looping), point `CODEX_CLI_PATH` at
+             the shim in the user's own environment, and let the user restart
+             ChatGPT so it picks the change up. Uninstalling removes the marker
+             and the env key and reports managed Codex configuration that still
+             names the key rather than silently editing another app's files.
+
+             "Make sure the shim exists" is what makes this one click rather
+             than one click after a build. The sidecar itself is Python
+             (`conpact.codex_sidecar`) on every platform; what differs is
+             only how the desktop is able to start it. On macOS and Linux
+             nothing needs compiling - the shim is a small generated script that
+             execs *this* interpreter on that module - so a machine that has
+             never built anything can still install. On Windows the desktop can
+             only spawn a real executable, so `build` compiles the native
+             launcher through `src/sidecar/build.cmd` and refuses clearly when
+             no compiler is installed, which is the one thing it cannot do for
+             itself; `launcher.txt` beside the exe then names the interpreter
+             and the import root, so moving Python never means compiling again.
+
+             The environment write is user scope only and the single key; how it
+             is stored so a GUI app sees it differs per platform and lives in
+             `codex_env`. `status` reads everything and changes nothing.
+@input      the platform to act as, the process environment, and (injected) the
+            env-store, builder and interpreter seams
+@output     an outcome dict per action; a status dict for `status`
+@dependencies conpact.codex_appserver, conpact.codex_env, conpact.codex_home,
+              conpact.codex_inject, conpact.detach, conpact.home; stdlib:
+              hashlib, os, pathlib, shutil, shlex, stat, subprocess, sys
+"""
+from __future__ import annotations
+
+import os
+import hashlib
+import pathlib
+import shutil
+import shlex
+import stat
+import subprocess
+import sys
+
+from . import codex_appserver, codex_env, codex_home, codex_inject, detach, home
+
+ENV_KEY = "CODEX_CLI_PATH"
+MARKER = codex_appserver.REAL_CODEX_MARKER
+BUILD_TIMEOUT = 300.0
+LAUNCHER_CONFIG = "launcher.txt"
+
+WINDOWS = codex_env.WINDOWS
+
+
+def sidecar_exe_name(platform=None) -> str:
+    """The shim's filename: an exe on Windows, a bare executable elsewhere."""
+    return "codex_sidecar.exe" if codex_env.platform_name(platform) == WINDOWS \
+        else "codex_sidecar"
+
+
+def sidecar_dir() -> pathlib.Path:
+    """Keep checkout shims stable; installed shims live in writable user state."""
+    sources = launcher_sources()
+    if sources.name == "sidecar":
+        return sources
+    identity = hashlib.sha256(str(src_root()).encode("utf-8")).hexdigest()[:16]
+    return home.HOME / "sidecar" / identity
+
+
+def launcher_sources() -> pathlib.Path:
+    """The same two source files, in a checkout or bundled in the wheel."""
+    package = pathlib.Path(__file__).resolve().parent
+    bundled = package / "sidecar_resources"
+    return bundled if bundled.is_dir() else package.parent / "sidecar"
+
+
+def sidecar_exe(platform=None) -> pathlib.Path:
+    return sidecar_dir() / sidecar_exe_name(platform)
+
+
+def marker_path() -> pathlib.Path:
+    return sidecar_dir() / MARKER
+
+
+def src_root() -> pathlib.Path:
+    """The import root the shim puts on PYTHONPATH."""
+    return pathlib.Path(__file__).resolve().parents[1]
+
+
+def launcher_config() -> pathlib.Path:
+    """What the Windows launcher reads: the interpreter, then the import root."""
+    return sidecar_dir() / LAUNCHER_CONFIG
+
+
+def _outcome(done: bool, detail=None, message=None) -> dict:
+    return {"done": done, "detail": detail, "message": message}
+
+
+def _run(argv, cwd=None):
+    return subprocess.run(argv, cwd=cwd, capture_output=True, text=True,
+                          timeout=BUILD_TIMEOUT)
+
+
+# ------------------------------------------------------------------ build ----
+
+def posix_shim(python: str, root: pathlib.Path, here: pathlib.Path) -> str:
+    """The generated POSIX shim: exec this interpreter on the sidecar module,
+    with the import root and the marker's folder named, and every argument the
+    desktop wrote passed through untouched. Quoted with shlex, so a Python in
+    `/Applications/My Tools/` is still one word."""
+    return ("#!/bin/sh\n"
+            "# Generated by conpact.codex_sidecar_install. Safe to delete:\n"
+            "# without it the desktop simply runs the real codex again.\n"
+            f"PYTHONPATH={shlex.quote(str(root))}${{PYTHONPATH:+:$PYTHONPATH}} \\\n"
+            f"CONPACT_SIDECAR_DIR={shlex.quote(str(here))} \\\n"
+            f"exec {shlex.quote(python)} -m conpact.codex_sidecar \"$@\"\n")
+
+
+def build(platform=None, runner=None, python=None) -> dict:
+    """Make the shim exist. Compiling on Windows, generating a script elsewhere."""
+    which = codex_env.platform_name(platform)
+    exe = sidecar_exe(platform)
+    if which != WINDOWS:
+        exe.parent.mkdir(parents=True, exist_ok=True)
+        exe.write_text(posix_shim(python or sys.executable, src_root(), sidecar_dir()),
+                       encoding="utf-8")
+        exe.chmod(exe.stat().st_mode | stat.S_IXUSR | stat.S_IXGRP | stat.S_IXOTH)
+        return _outcome(True, detail={"shim": str(exe)}, message=f"shim written: {exe}")
+    launcher_config().parent.mkdir(parents=True, exist_ok=True)
+    launcher_config().write_text(f"{python or sys.executable}\n{src_root()}\n",
+                                 encoding="utf-8")
+    if exe.is_file():
+        return _outcome(True, detail={"shim": str(exe)}, message=f"shim ready: {exe}")
+    script = sidecar_dir() / "build.cmd"
+    sources = launcher_sources()
+    if sources != sidecar_dir() and sources.is_dir():
+        for name in ("build.cmd", "codex_launcher.c"):
+            shutil.copyfile(sources / name, sidecar_dir() / name)
+    if not script.is_file():
+        return _outcome(False, message=f"the build script is missing: {script}")
+    try:
+        result = (runner or _run)([str(script)], str(sidecar_dir()))
+    except (OSError, subprocess.SubprocessError) as problem:
+        return _outcome(False, detail=f"{type(problem).__name__}: {problem}",
+                        message="the shim could not be built.")
+    if not exe.is_file():
+        output = ((getattr(result, "stdout", "") or "") +
+                  (getattr(result, "stderr", "") or "")).strip()
+        return _outcome(False, detail=output,
+                        message="the shim could not be built - install LLVM (clang) or "
+                                "the MSVC build tools, then try again.")
+    return _outcome(True, detail={"shim": str(exe)}, message=f"shim built: {exe}")
+
+
+# ----------------------------------------------------------------- read -----
+
+def read_env(platform=None, opener=None, runner=None):
+    """The current user-scope CODEX_CLI_PATH, or None."""
+    return codex_env.get(ENV_KEY, platform, opener=opener, runner=runner)
+
+
+def derived_overrides(environ=None) -> list[str]:
+    """Managed Codex files that still mention the sidecar environment key."""
+    root = codex_home.home(environ)
+    candidates = [root / "config.toml"]
+    cache = root / "plugins" / "cache"
+    try:
+        candidates.extend(sorted(cache.rglob(".mcp.json")))
+    except OSError:
+        pass
+    found = []
+    for path in candidates:
+        try:
+            if path.stat().st_size > 1_048_576:
+                continue
+            if ENV_KEY in path.read_text(encoding="utf-8"):
+                found.append(str(path))
+        except (OSError, UnicodeError):
+            continue
+    return found
+
+
+def real_codex(environ=None):
+    """The real codex to name in the marker: whatever codex resolves to *now*,
+    before the shim is in the way. Resolved with the marker's env absent, so it
+    can never point at the shim itself."""
+    env = dict(os.environ if environ is None else environ)
+    env.pop(ENV_KEY, None)                            # ignore any shim already set
+    return codex_appserver.codex_cli(env)
+
+
+def pinned_build(environ=None):
+    """The recorded fallback and the build selected for the next launch."""
+    try:
+        real = marker_path().read_text(encoding="utf-8").strip() or None
+    except OSError:
+        real = None
+    env = os.environ if environ is None else environ
+    newest = codex_appserver.newest_build(env)
+    selected = codex_appserver.selected_build(real, env)
+    pin = env.get(codex_appserver.REAL_CODEX_ENV)
+    selection = "explicit pin" if pin and pathlib.Path(pin).is_file() else \
+        "automatic" if newest is not None else "marker fallback"
+    details = codex_appserver.bundle_details(selected) if selected else {
+        "bundle": None, "version": None}
+    return {"pinned": real, "newest": str(newest) if newest else None,
+            "is_newest": bool(real and newest and pathlib.Path(real) == newest),
+            "selected": str(selected) if selected else None,
+            "selection": selection if selected else "unavailable",
+            "bundle": details["bundle"], "bundle_version": details["version"]}
+
+
+def status(environ=None, platform=None, opener=None, runner=None):
+    """What is installed and running, read-only."""
+    exe = sidecar_exe(platform)
+    domains = codex_env.status(ENV_KEY, platform, opener=opener, runner=runner)
+    current = domains["effective"]
+    record = codex_inject.read_record()
+    running = bool(record and record.get("pid") and detach.pid_alive(record["pid"]))
+    points_at = current is not None and pathlib.Path(current) == exe
+    return {
+        "platform": codex_env.platform_name(platform),
+        "exe": str(exe),
+        "built": exe.is_file(),
+        "marker": str(marker_path()),
+        "marker_written": marker_path().is_file(),
+        "env_value": current,
+        "env_persistent_value": domains["persistent"],
+        "env_caller_value": domains["caller"],
+        "env_gui_value": domains["gui"],
+        "env_discrepancy": domains["discrepancy"],
+        "env_points_at_shim": points_at,
+        "sidecar_running": running,
+        "store_note": codex_env.store_note(platform),
+        "installed": exe.is_file() and marker_path().is_file() and points_at,
+        "derived_override_paths": derived_overrides(environ),
+        **{f"codex_{k}": v for k, v in pinned_build(environ).items()},
+    }
+
+
+# ---------------------------------------------------------------- change -----
+
+def install(environ=None, platform=None, opener=None, broadcaster=None, runner=None,
+            builder=None, python=None) -> dict:
+    """Build the shim if it is not there, name the real codex, and point the
+    desktop's CODEX_CLI_PATH at it.
+
+    Refuses rather than half-installs when the shim cannot be made or the real
+    codex cannot be found - the two things it cannot do itself. The desktop must
+    be restarted afterwards; that is the user's step, and is said so.
+    """
+    exe = sidecar_exe(platform)
+    # Always, not only when the shim is missing: what the shim needs to know -
+    # which interpreter, where the package is - is written by `build`, and a
+    # Python that has moved since last time would otherwise leave a shim that
+    # cannot start. Building is a no-op when there is nothing to compile.
+    made = (builder or build)(platform, runner, python)
+    if not made["done"]:
+        return made
+    real = real_codex(environ)
+    if real is None:
+        return _outcome(False, message="the real codex executable could not be found.")
+    marker_path().write_text(str(real), encoding="utf-8")
+    try:
+        codex_env.set_value(ENV_KEY, str(exe), platform,
+                            opener=opener, broadcaster=broadcaster, runner=runner)
+    except OSError as problem:
+        return _outcome(False, detail=f"{type(problem).__name__}: {problem}",
+                        message="could not write the user environment.")
+    return _outcome(True, detail={"real_codex": str(real), "shim": str(exe)},
+                    message=f"installed - {codex_env.store_note(platform)}")
+
+
+def uninstall(environ=None, platform=None, opener=None, broadcaster=None, runner=None) -> dict:
+    """Undo install: clear the env key (only if it points at the shim) and remove
+    the marker. A CODEX_CLI_PATH the user set to something else is left alone."""
+    domains = codex_env.status(ENV_KEY, platform, opener=opener, runner=runner)
+    shim = sidecar_exe(platform)
+    values = [value for name, value in domains.items()
+              if name in ("persistent", "caller", "gui") and value]
+    ours = [value for value in values if pathlib.Path(value) == shim]
+    foreign = [value for value in values if pathlib.Path(value) != shim]
+    if ours and foreign:
+        return _outcome(False, detail={"environment": domains},
+                        message="CODEX_CLI_PATH differs across environment domains; "
+                                "no value was removed.")
+    if ours:
+        try:
+            codex_env.clear(ENV_KEY, platform,
+                            opener=opener, broadcaster=broadcaster, runner=runner)
+        except OSError as problem:
+            return _outcome(False, detail=f"{type(problem).__name__}: {problem}",
+                            message="could not write the user environment.")
+    try:
+        marker_path().unlink()
+    except OSError:
+        pass
+    remaining = derived_overrides(environ)
+    detail = {"remaining_overrides": remaining} if remaining else None
+    suffix = (" CODEX_CLI_PATH is still named in: " + ", ".join(remaining)) \
+        if remaining else ""
+    return _outcome(True, detail=detail,
+                    message="uninstalled. Restart ChatGPT Desktop to stop using the shim." + suffix)

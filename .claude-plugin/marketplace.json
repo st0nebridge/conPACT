@@ -1,0 +1,12 @@
+{
+  "name": "conpact",
+  "owner": { "name": "Brandon Stonebridge" },
+  "description": "conPACT for Claude Code: a session compacts itself at the end of the turn that asked for it.",
+  "plugins": [
+    {
+      "name": "conpact",
+      "source": "./src/mod",
+      "description": "Compacts a Claude Code session in-process at the end of the turn that asked for it, with no Remote Control. Answers the conPACT MCP server's queue, cancel and status tools."
+    }
+  ]
+}

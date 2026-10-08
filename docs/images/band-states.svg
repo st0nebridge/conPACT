@@ -1,0 +1,55 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="864" height="112" viewBox="0 0 864 112" role="img" aria-label="conPACT's band in its four states: queued, compacting, compacted, failed">
+<title>conPACT's band in its four states: queued, compacting, compacted, failed</title>
+<rect width="100%" height="100%" rx="8" fill="#1e1e1e"/>
+<g font-family="Cascadia Mono, Consolas, Menlo, 'DejaVu Sans Mono', monospace" font-size="14" xml:space="preserve">
+<text x="16.0" y="30" fill="#ffc107" font-weight="bold" textLength="8.4" lengthAdjust="spacingAndGlyphs">◇</text>
+<text x="32.8" y="30" fill="#ffc107" font-weight="bold" textLength="58.8" lengthAdjust="spacingAndGlyphs">conPACT</text>
+<text x="100.0" y="30" fill="#e6e6e6" textLength="50.4" lengthAdjust="spacingAndGlyphs">queued</text>
+<text x="158.8" y="30" fill="#999999" textLength="8.4" lengthAdjust="spacingAndGlyphs">≥</text>
+<text x="175.6" y="30" fill="#999999" textLength="33.6" lengthAdjust="spacingAndGlyphs">150k</text>
+<text x="217.6" y="30" fill="#999999" textLength="8.4" lengthAdjust="spacingAndGlyphs">·</text>
+<text x="234.4" y="30" fill="#999999" textLength="42.0" lengthAdjust="spacingAndGlyphs">keep:</text>
+<text x="284.8" y="30" fill="#999999" textLength="25.2" lengthAdjust="spacingAndGlyphs">the</text>
+<text x="318.4" y="30" fill="#999999" textLength="25.2" lengthAdjust="spacingAndGlyphs">API</text>
+<text x="352.0" y="30" fill="#999999" textLength="50.4" lengthAdjust="spacingAndGlyphs">design</text>
+<text x="410.8" y="30" fill="#999999" textLength="25.2" lengthAdjust="spacingAndGlyphs">and</text>
+<text x="444.4" y="30" fill="#999999" textLength="25.2" lengthAdjust="spacingAndGlyphs">the</text>
+<text x="478.0" y="30" fill="#999999" textLength="33.6" lengthAdjust="spacingAndGlyphs">open</text>
+<text x="520.0" y="30" fill="#999999" textLength="75.6" lengthAdjust="spacingAndGlyphs">questions</text>
+<text x="763.6" y="30" fill="#999999" textLength="50.4" lengthAdjust="spacingAndGlyphs">cancel</text>
+<text x="822.4" y="30" fill="#999999" textLength="25.2" lengthAdjust="spacingAndGlyphs">[-]</text>
+<text x="16.0" y="50" fill="#ffc107" font-weight="bold" textLength="8.4" lengthAdjust="spacingAndGlyphs">◆</text>
+<text x="32.8" y="50" fill="#ffc107" font-weight="bold" textLength="58.8" lengthAdjust="spacingAndGlyphs">conPACT</text>
+<text x="100.0" y="50" fill="#e6e6e6" textLength="84.0" lengthAdjust="spacingAndGlyphs">compacting</text>
+<text x="192.4" y="50" fill="#999999" textLength="42.0" lengthAdjust="spacingAndGlyphs">keep:</text>
+<text x="242.8" y="50" fill="#999999" textLength="25.2" lengthAdjust="spacingAndGlyphs">the</text>
+<text x="276.4" y="50" fill="#999999" textLength="25.2" lengthAdjust="spacingAndGlyphs">API</text>
+<text x="310.0" y="50" fill="#999999" textLength="50.4" lengthAdjust="spacingAndGlyphs">design</text>
+<text x="368.8" y="50" fill="#999999" textLength="25.2" lengthAdjust="spacingAndGlyphs">and</text>
+<text x="402.4" y="50" fill="#999999" textLength="25.2" lengthAdjust="spacingAndGlyphs">the</text>
+<text x="436.0" y="50" fill="#999999" textLength="33.6" lengthAdjust="spacingAndGlyphs">open</text>
+<text x="478.0" y="50" fill="#999999" textLength="75.6" lengthAdjust="spacingAndGlyphs">questions</text>
+<text x="822.4" y="50" fill="#999999" textLength="25.2" lengthAdjust="spacingAndGlyphs">[-]</text>
+<text x="16.0" y="70" fill="#4eba65" font-weight="bold" textLength="8.4" lengthAdjust="spacingAndGlyphs">✓</text>
+<text x="32.8" y="70" fill="#4eba65" font-weight="bold" textLength="58.8" lengthAdjust="spacingAndGlyphs">conPACT</text>
+<text x="100.0" y="70" fill="#e6e6e6" font-weight="bold" textLength="50.4" lengthAdjust="spacingAndGlyphs">285.4k</text>
+<text x="158.8" y="70" fill="#e6e6e6" font-weight="bold" textLength="8.4" lengthAdjust="spacingAndGlyphs">→</text>
+<text x="175.6" y="70" fill="#e6e6e6" font-weight="bold" textLength="42.0" lengthAdjust="spacingAndGlyphs">18.6k</text>
+<text x="226.0" y="70" fill="#4eba65" textLength="8.4" lengthAdjust="spacingAndGlyphs">━</text>
+<text x="234.4" y="70" fill="#999999" textLength="126.0" lengthAdjust="spacingAndGlyphs">───────────────</text>
+<text x="368.8" y="70" fill="#4eba65" textLength="50.4" lengthAdjust="spacingAndGlyphs">−93.5%</text>
+<text x="427.6" y="70" fill="#999999" textLength="16.8" lengthAdjust="spacingAndGlyphs">1m</text>
+<text x="452.8" y="70" fill="#999999" textLength="25.2" lengthAdjust="spacingAndGlyphs">25s</text>
+<text x="805.6" y="70" fill="#999999" textLength="8.4" lengthAdjust="spacingAndGlyphs">×</text>
+<text x="822.4" y="70" fill="#999999" textLength="25.2" lengthAdjust="spacingAndGlyphs">[-]</text>
+<text x="16.0" y="90" fill="#ff6b80" font-weight="bold" textLength="8.4" lengthAdjust="spacingAndGlyphs">✗</text>
+<text x="32.8" y="90" fill="#ff6b80" font-weight="bold" textLength="58.8" lengthAdjust="spacingAndGlyphs">conPACT</text>
+<text x="100.0" y="90" fill="#ff6b80" textLength="50.4" lengthAdjust="spacingAndGlyphs">failed</text>
+<text x="158.8" y="90" fill="#999999" textLength="25.2" lengthAdjust="spacingAndGlyphs">Not</text>
+<text x="192.4" y="90" fill="#999999" textLength="50.4" lengthAdjust="spacingAndGlyphs">enough</text>
+<text x="251.2" y="90" fill="#999999" textLength="67.2" lengthAdjust="spacingAndGlyphs">messages</text>
+<text x="326.8" y="90" fill="#999999" textLength="16.8" lengthAdjust="spacingAndGlyphs">to</text>
+<text x="352.0" y="90" fill="#999999" textLength="67.2" lengthAdjust="spacingAndGlyphs">compact.</text>
+<text x="805.6" y="90" fill="#999999" textLength="8.4" lengthAdjust="spacingAndGlyphs">×</text>
+<text x="822.4" y="90" fill="#999999" textLength="25.2" lengthAdjust="spacingAndGlyphs">[-]</text>
+</g></svg>

@@ -1,0 +1,10 @@
+# Optional Codex inference transport workaround. Merge these keys into the
+# user-level config.toml; keep model_provider outside all table sections.
+# The default endpoint and existing OpenAI/ChatGPT authentication are retained.
+model_provider = "openai-http"
+
+[model_providers.openai-http]
+name = "OpenAI"
+requires_openai_auth = true
+wire_api = "responses"
+supports_websockets = false

@@ -3,6 +3,33 @@
 Change Log Entries. Newest first.
 
 ```yaml
+id: CU-20261008-110
+type: docs
+title: "A guide to telling your agent when to compact"
+description: >
+  The user asked on 2026-10-08 whether the project tells people how to fit the
+  MCP compaction into their own workflow. It did not: the server's instructions
+  tell the agent when to queue, but nothing told the user how to make it a
+  dependable step. docs/agent-workflow.md does: when to queue and when not,
+  a block to paste into CLAUDE.md or AGENTS.md, attaching it to an existing
+  wrap-up command, writing a focus, choosing a minimum size, holding the idle
+  toast during long runs, and checking it works. It cites the maintainer's
+  measurement of why the timing matters (warm against cold compactions, the
+  cost of each, no rise in corrections). The README's "Let the agent do it"
+  section and the docs index link to it.
+impact: none
+affected_modules: [docs/agent-workflow.md, README.md, docs/README.md]
+related_tests: [tests/regression/test_the_docs_stand_on_their_own.py, tests/regression/test_the_published_tree_is_clean.py]
+commit_ref: "feature/agent-workflow-doc"
+author: "Brandon Stonebridge"
+timestamp: "2026-10-08T12:30:00+00:00"
+verification: >
+  The page is checked by the existing tests for every user-facing page (no
+  private workflow name, process acronym or record id; no pointer to the
+  working notes) and the published-tree test.
+```
+
+```yaml
 id: CU-20261008-109
 type: release
 title: "conPACT 1.3.2: the first public release, on a new root"
@@ -22,7 +49,12 @@ verification: >
   The release scan, run strictly over the tree, the commit and the tag, finds
   nothing to fix and nothing to review; the same configuration finds 90
   findings to fix on the development tree. The release is built, tested and
-  installed from its own export before it is pushed.
+  installed from its own export before it is pushed. Published 2026-10-08 as
+  the root 07367e4, built from the development commit 866da7b: from its export
+  2,822 tests passed (7 skipped: no git checkout, or POSIX-only), the mod's 127
+  passed, and the wheel installed in a fresh environment answered --help. A
+  fresh mirror of the repository afterwards held one commit on main, the one
+  tag v1.3.2 and one release, and the strict scan of it found nothing.
 ```
 
 ```yaml

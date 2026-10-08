@@ -8,6 +8,7 @@ conPACT does and how to set it up in five steps.
 | Page | Read it for |
 |---|---|
 | [Setup](setup.md) | The Stop hook, the MCP server, the mod, Remote Control, and sessions that were already open |
+| [Telling your agent when to compact](agent-workflow.md) | When to queue a compaction, a block for your `CLAUDE.md` or `AGENTS.md`, writing a focus, choosing a minimum |
 | [The Claude Code mod](claude-code-mod.md) | Compacting a session from inside Claude Code, without Remote Control |
 | [Idle toast](idle-toast.md) | When the toast comes, what each button does, auto-compaction, holds |
 | [Settings](settings.md) | Every setting, with its default and range |

@@ -115,6 +115,10 @@ worktree session (one Claude Code
 started in a `.claude/worktrees/...` checkout, which is merged and discarded
 rather than resumed). You can also just ask it to compact.
 
+To make it a dependable step of your own workflow, with a block to paste into
+`CLAUDE.md` or `AGENTS.md` and advice on the focus and the minimum size, see
+[Telling your agent when to compact](docs/agent-workflow.md).
+
 | Tool | What it does |
 |---|---|
 | `queue_compaction` | Compact this session when the turn ends. Optional `focus` (what the summary should keep) and `min_context_tokens` (skip it if the context is smaller). |

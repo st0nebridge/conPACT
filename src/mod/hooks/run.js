@@ -4,7 +4,9 @@
  *              claims the request, checks the minimum context size once (the
  *              request's own, else the user's default), and compacts the
  *              session in-process with $.session.compact - the same operation
- *              /compact runs - with the request's focus as its instructions.
+ *              /compact runs - with the request's focus as its instructions,
+ *              followed by the provenance clause (rules.compactInstructions,
+ *              D-20261009-090).
  *              Every outcome is recorded (compacted, below_threshold, skipped,
  *              error) with when its run began, and shown outside the
  *              conversation: in the band above the prompt (mod.band), and as
@@ -20,7 +22,7 @@
  */
 import * as files from './files.js'
 import * as requests from './requests.js'
-import { ATTEMPTS, decide } from './rules.js'
+import { ATTEMPTS, compactInstructions, decide } from './rules.js'
 
 // The sessions this load of the mod is running a request for. A reload starts it empty.
 const live = new Set()
@@ -35,7 +37,7 @@ function count(value) {
 }
 
 async function compact(host, request, tokens) {
-  const answer = await host.session.compact(request.focus ? { instructions: request.focus } : {})
+  const answer = await host.session.compact({ instructions: compactInstructions(request.focus) })
   if (typeof answer?.skip === 'string') return { action: 'skipped', reason: answer.skip }
   return { action: 'compacted', reason: '', tokens_before: count(answer?.tokensBefore) ?? tokens,
     tokens_after: count(answer?.tokensAfter) }

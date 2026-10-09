@@ -53,7 +53,10 @@ TOOLS = [
             "implementation closure. Eligible implementation work must be verifiably complete and "
             "checkpointed (tests run, changes committed, open threads written down) - as your last action, "
             "once per closure. Then finish your answer normally; do not call it again. Optional focus: one line "
-            "telling the summary what to keep. Optional min_context_tokens: compact only if the context is "
+            "of facts telling the summary what to keep - what is done and what is open. Word your own "
+            "choices and offers as yours: never attribute them to the user (\"the user's call\", \"the user "
+            "runs X\") unless you quote the user, because the summary carries them forward as the user's "
+            "rules. Optional min_context_tokens: compact only if the context is "
             "at least that large when the turn ends; otherwise nothing happens. Queuing again replaces the "
             "earlier request. Use cancel_compaction to withdraw it. It answers queued=false, "
             "without queuing anything, in a throwaway spin-off session - one working in a "
@@ -63,7 +66,8 @@ TOOLS = [
             "type": "object",
             "properties": {
                 "focus": {"type": "string", "maxLength": compaction.MAX_FOCUS_CHARS,
-                          "description": "What the compaction summary should preserve (one line)."},
+                          "description": "The state the summary should keep, as facts (one line). Never word "
+                                         "your own choices as the user's decisions."},
                 "min_context_tokens": {"type": "integer", "minimum": 1,
                                        "maximum": compaction.MAX_CONTEXT_TOKENS,
                                        "description": "Compact only if the context is at least this many "

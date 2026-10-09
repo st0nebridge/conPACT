@@ -6,8 +6,9 @@
  *              answered beside it.
  */
 import { expect, test } from 'claude-code/testing'
+import { PROVENANCE_CLAUSE } from '../hooks/rules.js'
 import { claim, readAsk } from '../hooks/handoff.js'
-import { HOME, QUEUE, SESSION, STATE, turnEnd, world } from './world.ts'
+import { HOME, KEPT, QUEUE, SESSION, STATE, turnEnd, world } from './world.ts'
 
 const NOW = 1_790_000_000_000
 const SECONDS = NOW / 1000
@@ -64,7 +65,7 @@ test('a request is taken within two seconds, the session compacted, and the outc
   await w.clock.advance(1_999)
   expect(w.compactions).toEqual([])
   await w.clock.advance(1)
-  expect(w.compactions).toEqual([{ instructions: undefined, trigger: undefined }])
+  expect(w.compactions).toEqual([{ instructions: PROVENANCE_CLAUSE, trigger: undefined }])
   expect(json(w, ANSWER)).toEqual({
     session_id: SESSION, request_id: 'r1', at: SECONDS + 2, action: 'compacted', reason: '',
     tokens_before: 412_880, tokens_after: 37_400,
@@ -88,7 +89,7 @@ test('the answer says claimed, and the band shows it running, while the compacti
     compact: () => {
       seen = json(w, ANSWER)
       mark = w.saved.get('running:' + SESSION)
-      return { messages: [], tokensBefore: 10, tokensAfter: 5 }
+      return { messages: KEPT, tokensBefore: 10, tokensAfter: 5 }
     },
   })
   await $.session.start(START)

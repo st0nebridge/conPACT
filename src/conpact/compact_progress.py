@@ -8,10 +8,12 @@
              chunks, so a large transcript is never re-read. Claude Code can
              append copies of earlier rows while compacting, an earlier boundary
              among them, so a boundary counts only if it is stamped at or after
-             the send.
+             the send. compacted_since asks the same of a compaction nobody
+             here sent: has one finished since a given moment?
 @input      the transcript path, its size before the send, the send time, a clock
 @output     a state: compacting (elapsed seconds), compacted (tokens before and
-            after, seconds, trigger, time) or unconfirmed (no boundary in time)
+            after, seconds, trigger, time) or unconfirmed (no boundary in time);
+            or, from compacted_since, the boundary found or None
 @dependencies stdlib: datetime, json, os
 """
 from __future__ import annotations
@@ -114,3 +116,22 @@ class Tracker:
             if state["state"] != "compacting":
                 return state
             sleep(step)
+
+
+def compacted_since(path, offset: int, since: float) -> dict | None:
+    """The first main-thread boundary appended after `offset` and stamped at or
+    after `since`, or None. Everything appended is read, in bounded chunks, so a
+    boundary behind megabytes of rows copied forward is still found; a
+    transcript nothing was appended to costs one stat, and one that cannot be
+    read has nothing to show."""
+    now = size(path)
+    if now is None or now <= offset:
+        return None
+    tail = Tracker(path, offset, since, clock=None)
+    found = None
+    while found is None and tail.offset < now:
+        read_from = tail.offset
+        found = tail._scan()
+        if tail.offset == read_from:
+            break   # nothing more could be read
+    return found

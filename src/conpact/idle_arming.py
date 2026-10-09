@@ -19,8 +19,8 @@
 @input      the Stop hook JSON (session_id, transcript_path)
 @output     a status dict (armed / skip / not_armed / error); a watch marker; a
             detached watcher process
-@dependencies conpact.app_sessions, conpact.cache_window, conpact.detach,
-              conpact.idle_state, conpact.session_registry, conpact.settings;
+@dependencies conpact.app_sessions, conpact.cache_window, conpact.compact_progress,
+              conpact.detach, conpact.idle_state, conpact.session_registry, conpact.settings;
               stdlib: os, pathlib, time
 """
 from __future__ import annotations
@@ -29,7 +29,8 @@ import os
 import pathlib
 import time
 
-from . import app_sessions, cache_window, detach, idle_state, session_registry, settings as user_settings
+from . import (app_sessions, cache_window, compact_progress, detach, idle_state, session_registry,
+               settings as user_settings)
 
 WATCH_MODULE = "conpact.idle_watch"
 MIN_FRACTION = 0.6
@@ -130,6 +131,10 @@ def arm(hook_input: dict, environ=None, sessions_dir=None, clock=time.time, spaw
     watch = {"session_id": session_id, "armed_at": now, "last_call": window.last_call, "ttl": window.ttl,
              "context_tokens": window.context_tokens, "fire_at": fire_at, "expires_at": window.expires_at,
              "stages": due, "name": record.get("name"), "pid": record.get("pid"), "transcript_path": transcript,
+             # Where this turn's transcript ends: a compaction after it - the
+             # agent's own, which the mod runs just after this Stop - shows up
+             # past here, and the watch stands down for it.
+             "transcript_size": compact_progress.size(transcript),
              "host_session_id": record.get("hostSessionId")}
     generation = idle_state.write_marker(session_id, watch)
     argv = [detach.windowless_python(), "-m", WATCH_MODULE, session_id, generation]

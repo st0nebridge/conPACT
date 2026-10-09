@@ -6,7 +6,8 @@
              /compact into the session over the bridge). The command text is
              constructed here, never taken verbatim from a shell argument, so a
              leading slash cannot be mangled and the executed command is always
-             exactly /compact plus a sanitized one-line focus hint. Requests live
+             exactly /compact plus a sanitized one-line focus hint and the fixed
+             provenance clause (D-20261009-090). Requests live
              in conPACT's own home (~/.conpact/requests/), keyed by a validated
              session id, and may carry a minimum context size the Stop hook
              checks before firing. Writing goes to the current folder only;
@@ -45,6 +46,19 @@ LEGACY_REQUESTS_DIR = home.CLAUTOMATIC / "requests"          # before the rename
 
 COMPACT_COMMAND = "/compact"
 MAX_FOCUS_CHARS = 500
+# Appended to every /compact conPACT sends, after the agent's focus and outside
+# its MAX_FOCUS_CHARS (D-20261009-090). A summary lists constraints with no
+# source and reads the /compact line as a user message, so a precaution the
+# agent chose for itself, or the agent's own focus text, came to be carried
+# forward as the user's rule. src/mod/hooks/rules.js holds the same sentence
+# for the mod's compactions, and a test keeps the two identical.
+PROVENANCE_CLAUSE = (
+    "Provenance: these instructions were written by the agent, not the user; never list them as a user "
+    "message. List a constraint as binding only with its source: the user's own words and the date, or the "
+    "file it lives in. Precautions the agent chose for itself, permission or classifier denials and requests "
+    "from other sessions go under Agent's working choices (not binding), with their date and task, and are "
+    "dropped when that task ends."
+)
 # A sanity bound for min_context_tokens, well above any context window.
 MAX_CONTEXT_TOKENS = 10_000_000
 
@@ -68,10 +82,12 @@ def normalize_focus(focus) -> str:
     return " ".join(visible.split())[:MAX_FOCUS_CHARS].rstrip()
 
 
-def build_compact_text(focus: str = "") -> str:
-    """Construct the exact /compact command text (optionally with a focus hint)."""
+def build_compact_text(focus: str = "", provenance: bool = False) -> str:
+    """Construct the exact /compact command text: optionally a focus hint, and
+    with `provenance` the fixed PROVENANCE_CLAUSE after it."""
     focus = normalize_focus(focus)
-    return f"{COMPACT_COMMAND} {focus}" if focus else COMPACT_COMMAND
+    parts = [COMPACT_COMMAND] + ([focus] if focus else []) + ([PROVENANCE_CLAUSE] if provenance else [])
+    return " ".join(parts)
 
 
 def _request_path(session_id: str, requests_dir: pathlib.Path | None = None) -> pathlib.Path:
@@ -227,7 +243,7 @@ def compact_record(
     never the token.
     """
     bridge_id = record["bridgeSessionId"]
-    text = build_compact_text(focus)
+    text = build_compact_text(focus, provenance=True)
     result = {
         "name": record.get("name"),
         "pid": record.get("pid"),

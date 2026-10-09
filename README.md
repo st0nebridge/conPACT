@@ -184,6 +184,24 @@ before a 1-hour cache expires, in the bottom-right corner, without taking focus.
 Using the session again cancels it, and nothing is ever sent to a busy session.
 There is an optional earlier toast too: [docs/idle-toast.md](docs/idle-toast.md).
 
+### Checking the summary's sources
+
+A summary can turn a precaution the agent chose for itself, or another
+session's request, into a rule that reads as yours. Every compaction conPACT
+starts asks the summary to give each constraint its source. An optional
+`SessionStart` hook checks every compaction afterwards, whoever started it, and
+tells the resumed agent which constraints it traced to your words or an
+instruction file and which it could not:
+
+```json
+"SessionStart": [
+  { "matcher": "compact",
+    "hooks": [ { "type": "command", "command": "python /path/to/conpact/tools/compact_provenance.py", "timeout": 60 } ] }
+]
+```
+
+More: [docs/agent-workflow.md](docs/agent-workflow.md#keeping-the-summary-honest).
+
 ## ChatGPT Desktop
 
 conPACT reads and measures ChatGPT Desktop's threads out of the box, without
@@ -269,7 +287,7 @@ The full model: [docs/security.md](docs/security.md).
 
 | | |
 |---|---|
-| **Tests** | Windows 2,825 passed (2026-10-08); Linux 2,003 passed (2026-09-25); macOS 2,178 passed (2026-09-23) |
+| **Tests** | Windows 2,962 passed (2026-10-09); Linux 2,003 passed (2026-09-25); macOS 2,178 passed (2026-09-23) |
 | **Claude Code, live** | Agent-queued and toast-driven compactions observed end to end; with the mod, an agent-queued compaction observed end to end with Remote Control off, a Desktop session compacted through `/compact`, and the band drawn in the terminal and the Desktop app |
 | **ChatGPT Desktop, live** | Sidecar compaction, turn-end arming, and a thread queueing its own compaction observed end to end |
 

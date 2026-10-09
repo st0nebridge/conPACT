@@ -51,8 +51,12 @@ Letting the early toast go is not an answer for the whole idle stretch: the
 expiry toast still comes.
 
 The watcher stands down as soon as you use the session again (its record shows
-it busy, or changed since the turn end), a newer turn end re-arms it, the
-session closes, or you archive it.
+it busy, or changed since the turn end), the session is compacted some other
+way (your own `/compact`, a compaction the agent queued, or Claude Code's
+automatic one: the transcript gains a compaction after that turn end), a newer
+turn end re-arms it, the session closes, or you archive it. So a session the
+agent compacted at the end of its work is never offered, or given, a second
+compaction while it sits idle.
 
 ## The buttons
 

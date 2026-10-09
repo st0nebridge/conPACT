@@ -8,7 +8,8 @@ The contract, end to end through the real modules (clock, toast and bridge faked
      minutes idle on a 1-hour cache, 3 minutes on a 5-minute cache. Below the
      minimum, or with the notifier switched off, nothing is armed.
   2. At that time, if the session is still idle, the toast asks; "Compact now"
-     sends exactly "/compact" to the bridge of the session bound from the
+     sends exactly "/compact" and conPACT's provenance clause (D-20261009-090)
+     to the bridge of the session bound from the
      runtime - once.
   3. "Always compact" also compacts now, and switches that session
      (only that one) to compacting without asking on its later idles, with a
@@ -105,7 +106,7 @@ def test_2_compact_now_sends_exactly_compact_to_the_bound_session_once(tmp_path)
         states.extend([prompt.act("compact"), prompt.act("compact")])
     outcome = idle_watch.watch("sess-a", generation, _deps(Clock(T0 + 1), sent, click))
     assert states == [{"state": "sent"}, {"state": "closed"}]  # the second click sends nothing
-    assert sent == [("bridge-sess-a", "/compact")]
+    assert sent == [("bridge-sess-a", "/compact " + compaction.PROVENANCE_CLAUSE)]
     assert outcome["event"] == "compacted"
 
 
@@ -125,7 +126,7 @@ def test_3_auto_compact_switches_that_session_only_and_later_idles_do_not_ask(tm
         shown.append((controller, controller.act("turn_off_auto")))
     outcome = idle_watch.watch("sess-a", idle_state.read_marker("sess-a")["generation"],
                                _deps(Clock(T0 + 1), sent, present))
-    assert sent == [("bridge-sess-a", "/compact")] * 2
+    assert sent == [("bridge-sess-a", "/compact " + compaction.PROVENANCE_CLAUSE)] * 2
     # told, not asked, and the notice's switch says it turned auto off
     assert [(type(c), state) for c, state in shown] == [(idle_watch.Notice, {"state": "auto_off"})]
     assert outcome["event"] == "auto_compacted" and idle_state.auto_mode("sess-a") is None

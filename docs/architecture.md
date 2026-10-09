@@ -19,7 +19,7 @@ imports.
 | [`keychain.py`](../src/conpact/keychain.py) | Read Claude Code's login from the macOS Keychain, the entry named as Claude Code names it, split logins put back together; never write | — |
 | [`bridge_client.py`](../src/conpact/bridge_client.py) | The single source of truth for the bridge wire format and what counts as accepted (2xx) | — |
 | [`context_meter.py`](../src/conpact/context_meter.py) | Measure a session's live context size from its transcript | session_registry |
-| [`compaction.py`](../src/conpact/compaction.py) | Construct `/compact` text; record, read, cancel and claim requests; orchestrate a send | bridge_client, session_registry, token_store |
+| [`compaction.py`](../src/conpact/compaction.py) | Construct `/compact` text, with the provenance clause every send carries; record, read, cancel and claim requests; orchestrate a send | bridge_client, session_registry, token_store |
 | [`closure_hook.py`](../src/conpact/closure_hook.py) | The Stop hook: claim a request at most once, check the minimum size, fire, report and log; then hand the turn end to the idle notifier and sweep Codex threads | bridge_client, codex_arming, compaction, context_meter, idle_arming, session_registry, settings, token_store |
 | [`spin_off.py`](../src/conpact/spin_off.py) | Is the calling session a throwaway `.claude/worktrees/...` checkout, and is the refusal switched on? | settings |
 | [`cli.py`](../src/conpact/cli.py) | The command-line surface: self-only, `/compact`-only | bridge_client, compaction, session_registry, token_store |
@@ -66,6 +66,10 @@ Claude Code's own test host; the Python suite runs them too.
 | [`doctor.py`](../src/conpact/doctor.py) | Read-only installed Codex health: Python, Codex login, MCP config, sidecar, bundled build, state access; reports Claude's optional Keychain login separately | codex_home, codex_sidecar_install, codex_threads, token_store |
 | [`remote_startup.py`](../src/conpact/remote_startup.py) | One key of Claude Code's own settings, `remoteControlAtStartup`, written only on the toast's click | session_registry |
 | [`detach.py`](../src/conpact/detach.py) | Start a process that outlives the hook and holds none of its handles; is a pid alive | — |
+| [`provenance.py`](../src/conpact/provenance.py) | The post-compaction provenance check (a `SessionStart` hook, matcher `compact`): trace each constraint of the summary just written to the user's words, an instruction file, the system prompt, a file the agent wrote itself, another session - or nothing; print it unsourced first, log it, sum the log up | home, provenance_items, provenance_match, provenance_transcript |
+| [`provenance_transcript.py`](../src/conpact/provenance_transcript.py) | Read a transcript for that check, sorting whose words are whose: the user's (typed, queued, answers, denials), look-alikes (other sessions, subagents, task chips, `/compact`), the agent's writes to rule files, the summaries, the system prompt | — |
+| [`provenance_items.py`](../src/conpact/provenance_items.py) | Pick the constraints out of a summary: constraint lists in their many shapes, and sentences worded as rules | — |
+| [`provenance_match.py`](../src/conpact/provenance_match.py) | Whether a constraint plausibly came from a text: content-word containment with a threshold, and whether the matching text seems to say the opposite | — |
 
 ### Windows, toast and settings
 
@@ -134,6 +138,7 @@ Everything outside `src/` is a thin shim.
 | [`tools/codex_remote.py`](../tools/codex_remote.py) | Shim to `conpact.codex_remote_cli`. |
 | [`tools/codex_cli.py`](../tools/codex_cli.py) | Shim to the integrated Codex CLI launcher and hook installer. |
 | [`tools/doctor.py`](../tools/doctor.py) | Shim to the read-only installed Codex health report. |
+| [`tools/compact_provenance.py`](../tools/compact_provenance.py) | Shim to `conpact.provenance`: the post-compaction provenance check, as a hook or by hand (`--transcript`, `--report`). |
 | [`tools/mutate.py`](../tools/mutate.py) | The mutation tester. Not imported by anything. |
 | [`tools/mutate_mod.py`](../tools/mutate_mod.py) | The mutation tester for the mod, with `claude plugin test` as its oracle. Not imported by anything. |
 | [`src/sidecar/codex_launcher.c`](../src/sidecar/codex_launcher.c) | The Windows launcher the desktop spawns; execs the Python sidecar and carries no logic. |

@@ -121,7 +121,7 @@ def test_2_the_toast_before_the_cache_expires_still_comes(tmp_path):
     outcome = _watch(clock, sent, lambda c: shown.append(c.model()["stage"]) or c.act("compact"))
     assert shown == ["expiry"]                      # the early one was held, not shown
     assert outcome["earlier"] == [{"stage": "early", "event": "held"}]
-    assert sent == [("bridge-sess-a", "/compact")]
+    assert sent == [("bridge-sess-a", "/compact " + compaction.PROVENANCE_CLAUSE)]
 
 
 # --- 3: it survives the session being used again -----------------------------
@@ -171,6 +171,6 @@ def test_5_a_held_auto_compaction_happens_before_the_cache_expires_instead(tmp_p
     clock, sent, shown = Clock(), [], []
     outcome = _watch(clock, sent, shown.append)
     assert [c.model()["stage"] for c in shown] == ["expiry"]     # told, not asked
-    assert sent == [("bridge-sess-a", "/compact")]              # not at the early stage: at the last one
+    assert sent == [("bridge-sess-a", "/compact " + compaction.PROVENANCE_CLAUSE)]              # not at the early stage: at the last one
     assert outcome["event"] == "auto_compacted"
     assert outcome["earlier"] == [{"stage": "early", "event": "held"}]

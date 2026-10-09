@@ -1,14 +1,16 @@
 /**
  * @module mod.tests.rules
  * @description The rules the mod shares with conPACT's Python side, checked
- *              value by value: the focus line, the minimum context size, a
+ *              value by value: the focus line, the provenance clause, the
+ *              minimum context size, a
  *              plain session id, a throwaway worktree session, the user's
  *              settings, the early toast's hold, when a turn-end
  *              compaction goes ahead, and which files the mod may write.
  */
 import { expect, test } from 'claude-code/testing'
 import {
-  ATTEMPTS, KEEP_MS, MAX_CONTEXT_TOKENS, MAX_FOCUS_CHARS, STALE_RUN_MS, checkMinimum, decide, holdMinutesLeft, isSessionId, isSpinOff,
+  ATTEMPTS, KEEP_MS, MAX_CONTEXT_TOKENS, MAX_FOCUS_CHARS, PROVENANCE_CLAUSE, STALE_RUN_MS, checkMinimum, compactInstructions,
+  decide, holdMinutesLeft, isSessionId, isSpinOff,
   isWritable,
   normalizeFocus, readSettings, roundHalfEven, thousands, unexpected,
 } from '../hooks/rules.js'
@@ -17,6 +19,15 @@ test('the limits are what the pages say they are', async () => {
   expect(STALE_RUN_MS).toBe(600_000)
   expect(ATTEMPTS).toBe(3)
   expect(KEEP_MS).toBe(604_800_000)
+})
+
+test('every compaction is told where its constraints must come from, after the focus', async () => {
+  expect(PROVENANCE_CLAUSE.startsWith('Provenance: these instructions were written by the agent')).toBe(true)
+  expect(normalizeFocus(PROVENANCE_CLAUSE)).toBe(PROVENANCE_CLAUSE)
+  expect(compactInstructions('keep\nthe plan')).toBe('keep the plan ' + PROVENANCE_CLAUSE)
+  expect(compactInstructions('')).toBe(PROVENANCE_CLAUSE)
+  expect(compactInstructions(undefined)).toBe(PROVENANCE_CLAUSE)
+  expect(compactInstructions('x'.repeat(5000))).toBe('x'.repeat(MAX_FOCUS_CHARS) + ' ' + PROVENANCE_CLAUSE)
 })
 
 test('the focus is one printable line of at most 500 characters', async () => {

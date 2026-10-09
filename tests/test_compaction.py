@@ -80,7 +80,7 @@ def test_compact_record_dry_run_does_not_send():
     out = cx.compact_record(_record(), dry_run=True, token_getter=boom, sender=boom)
     assert out["sent"] is False
     assert out["dry_run"] is True
-    assert out["text"] == "/compact"
+    assert out["text"] == "/compact " + cx.PROVENANCE_CLAUSE
 
 
 def test_compact_record_sends_once_with_constructed_text():
@@ -98,7 +98,7 @@ def test_compact_record_sends_once_with_constructed_text():
     assert out["http_status"] == 200
     assert out["token_refreshed"] is False
     assert out["response"] == '{"ok":true}'
-    assert calls == [("bridge_a", "/compact keep X", "tok")]
+    assert calls == [("bridge_a", "/compact keep X " + cx.PROVENANCE_CLAUSE, "tok")]
     assert "tok" not in {k: v for k, v in out.items() if k != "response"}.values()
 
 
@@ -179,10 +179,23 @@ def test_compact_record_allows_refresh_by_default(monkeypatch):
     assert seen == {"allow_refresh": True}
 
 
-def test_compact_self_without_focus_sends_plain_compact(tmp_path):
+def test_compact_self_without_focus_sends_only_the_provenance_clause(tmp_path):
     import json
     (tmp_path / "7.json").write_text(json.dumps(dict(
         name="Me", pid=7, sessionId="s7", hostSessionId="local_7", bridgeSessionId="bridge_7")), encoding="utf-8")
     out = cx.compact_self(environ={"CLAUDE_CODE_SESSION_ID": "s7", "CLAUDE_PID": "7"}, sessions_dir=tmp_path,
                           dry_run=True)
-    assert out["text"] == "/compact"
+    assert out["text"] == "/compact " + cx.PROVENANCE_CLAUSE
+
+
+def test_build_compact_text_adds_the_provenance_clause_only_when_asked():
+    assert cx.build_compact_text("keep X") == "/compact keep X"
+    assert cx.build_compact_text("keep X", provenance=True) == "/compact keep X " + cx.PROVENANCE_CLAUSE
+    assert cx.build_compact_text("", provenance=True) == "/compact " + cx.PROVENANCE_CLAUSE
+
+
+def test_the_provenance_clause_is_one_printable_line_outside_the_focus_limit():
+    assert cx.normalize_focus(cx.PROVENANCE_CLAUSE) == cx.PROVENANCE_CLAUSE
+    assert "\n" not in cx.PROVENANCE_CLAUSE and cx.PROVENANCE_CLAUSE.isprintable()
+    text = cx.build_compact_text("x" * 5000, provenance=True)
+    assert text == "/compact " + "x" * cx.MAX_FOCUS_CHARS + " " + cx.PROVENANCE_CLAUSE

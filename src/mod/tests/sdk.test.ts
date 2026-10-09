@@ -3,11 +3,13 @@
  * @description A session with no terminal behind it - the desktop app's Code
  *              tab, the Agent SDK, a -p run - where Claude Code refuses a
  *              mod's in-process compaction. There the mod runs /compact as
- *              the person would, the request's focus as its text, and reads
+ *              the person would, the request's focus and the provenance
+ *              clause as its text, and reads
  *              the outcome from the compaction that command makes.
  */
 import { expect, test } from 'claude-code/testing'
 import { KEPT, QUEUE, SESSION, STATE, turnEnd, world } from './world.ts'
+import { PROVENANCE_CLAUSE } from '../hooks/rules.js'
 
 const NOW = 1_790_000_000_000
 const SECONDS = NOW / 1000
@@ -64,9 +66,9 @@ test('in an SDK session a queued request runs /compact with its focus after the 
   await $.turn.complete(turnEnd())
   expect(w.commands).toEqual([])            // not inside the turn's own event
   await w.clock.settle()
-  expect(w.commands).toEqual([{ command: 'compact', args: 'keep the plan' }])
+  expect(w.commands).toEqual([{ command: 'compact', args: 'keep the plan ' + PROVENANCE_CLAUSE }])
   await w.engine($)
-  expect(w.compactions).toEqual([{ instructions: 'keep the plan', trigger: 'manual' }])
+  expect(w.compactions).toEqual([{ instructions: 'keep the plan ' + PROVENANCE_CLAUSE, trigger: 'manual' }])
   expect(w.saved.has('request:' + SESSION)).toBe(false)
   expect(w.saved.get('result:' + SESSION)).toEqual({
     action: 'compacted', reason: '', at: NOW, started_at: NOW, focus: 'keep the plan', context_tokens: 412_880,
@@ -76,15 +78,15 @@ test('in an SDK session a queued request runs /compact with its focus after the 
   expect(w.toasts).toEqual([])
 })
 
-test('with no focus /compact runs with nothing after it', async ($, on) => {
+test('with no focus /compact runs with only the provenance clause after it', async ($, on) => {
   const w = sdkWorld(on)
   await $.session.start(SDK)
   await $.tool.call({ tool: QUEUE })
   await $.turn.complete(turnEnd())
   await w.clock.settle()
-  expect(w.commands).toEqual([{ command: 'compact', args: '' }])
+  expect(w.commands).toEqual([{ command: 'compact', args: PROVENANCE_CLAUSE }])
   await w.engine($)
-  expect(w.compactions.map((c) => c.instructions)).toEqual([undefined])
+  expect(w.compactions.map((c) => c.instructions)).toEqual([PROVENANCE_CLAUSE])
 })
 
 test('a terminal session still compacts in-process and runs no command', async ($, on) => {
@@ -94,7 +96,7 @@ test('a terminal session still compacts in-process and runs no command', async (
   await $.turn.complete(turnEnd())
   await w.clock.settle()
   expect(w.commands).toEqual([])
-  expect(w.compactions.map((c) => c.instructions)).toEqual(['f'])
+  expect(w.compactions.map((c) => c.instructions)).toEqual(['f ' + PROVENANCE_CLAUSE])
   expect((w.saved.get('result:' + SESSION) as any).action).toBe('compacted')
 })
 
@@ -146,7 +148,7 @@ test("in an SDK session the idle toast runs /compact, and the agent's request st
   await $.tool.call({ tool: QUEUE, focus: 'mine' })
   toastAsks(w)
   await w.clock.advance(2_000)
-  expect(w.commands).toEqual([{ command: 'compact', args: '' }])
+  expect(w.commands).toEqual([{ command: 'compact', args: PROVENANCE_CLAUSE }])
   expect(json(w, ANSWER).action).toBe('claimed')
   await w.engine($)
   expect(json(w, ANSWER)).toEqual({

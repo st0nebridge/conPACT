@@ -224,3 +224,79 @@ def test_wait_ends_at_the_limit(transcript):
     tracker = _tracker(transcript, clock, limit=12)
     assert tracker.wait(clock.sleep, 5) == {"state": "unconfirmed", "seconds": 15.0}
     assert clock.slept == [5, 5, 5]
+
+
+# --- compacted_since: a compaction nobody here sent -------------------------
+
+def test_compacted_since_finds_a_boundary_appended_after_the_offset(transcript):
+    offset = cp.size(str(transcript))
+    assert cp.compacted_since(str(transcript), offset, SENT) is None
+    _append(transcript, _line(NEW))
+    assert cp.compacted_since(str(transcript), offset, SENT) == {
+        "pre_tokens": 354_583, "post_tokens": 23_557, "duration_ms": 90_790, "trigger": "manual",
+        "at": "2026-09-19T17:23:12.991Z"}
+
+
+def test_compacted_since_ignores_what_was_there_before_the_offset(tmp_path):
+    path = tmp_path / "t.jsonl"
+    path.write_bytes(_line(NEW))
+    assert cp.compacted_since(str(path), cp.size(str(path)), SENT) is None
+    assert cp.compacted_since(str(path), 0, SENT) is not None
+
+
+@pytest.mark.parametrize("at, counts", [
+    ("2026-09-19T17:21:41.394Z", True),   # stamped at the moment itself
+    ("2026-09-19T17:21:41.393Z", False),  # an earlier boundary Claude Code copied forward
+    (None, False),
+])
+def test_compacted_since_counts_a_boundary_only_from_the_moment_on(transcript, at, counts):
+    offset = cp.size(str(transcript))
+    _append(transcript, _line({**NEW, "timestamp": at}))
+    assert (cp.compacted_since(str(transcript), offset, SENT) is not None) is counts
+
+
+def test_compacted_since_reads_past_rows_copied_forward_in_one_call(transcript, monkeypatch):
+    """The 2026-10-08 compaction appended ~540 earlier rows before its boundary:
+    one look reads all of it, however many bounded chunks that takes."""
+    monkeypatch.setattr(cp, "MAX_READ", 64)
+    offset = cp.size(str(transcript))
+    copies = b"".join(_line({"type": "user", "timestamp": "2026-09-19T04:28:34.590Z", "pad": "x" * 50})
+                      for _ in range(20))
+    _append(transcript, copies + _line(BOUNDARY) + _line(NEW) + copies)
+    assert cp.compacted_since(str(transcript), offset, SENT)["post_tokens"] == 23_557
+
+
+def test_compacted_since_waits_for_a_line_still_being_written(transcript):
+    offset = cp.size(str(transcript))
+    data = _line(NEW)
+    _append(transcript, data[:40])
+    assert cp.compacted_since(str(transcript), offset, SENT) is None
+    _append(transcript, data[40:])
+    assert cp.compacted_since(str(transcript), offset, SENT) is not None
+
+
+def test_compacted_since_with_nothing_to_read(tmp_path, transcript, monkeypatch):
+    offset = cp.size(str(transcript))
+    opened = []
+    monkeypatch.setattr("builtins.open", lambda *a, **k: opened.append(a) or (_ for _ in ()).throw(OSError()))
+    assert cp.compacted_since(str(transcript), offset, SENT) is None   # unchanged: a stat, no read
+    assert opened == []
+    assert cp.compacted_since(str(tmp_path / "gone.jsonl"), 0, SENT) is None
+    assert cp.compacted_since(None, 0, SENT) is None
+    assert cp.compacted_since(str(transcript), offset + 10, SENT) is None   # shorter than it was
+
+
+def test_compacted_since_an_unreadable_transcript_shows_nothing(transcript, monkeypatch):
+    """One failed read ends the look: it must not spin on a file it cannot open
+    (the watcher asks again at its next poll anyway)."""
+    _append(transcript, _line(NEW))
+    tries = []
+
+    def refuse(*args, **kwargs):
+        tries.append(args)
+        if len(tries) > 3:
+            raise AssertionError("kept retrying a transcript it cannot read")
+        raise OSError("locked")
+    monkeypatch.setattr("builtins.open", refuse)
+    assert cp.compacted_since(str(transcript), 0, SENT) is None
+    assert len(tries) == 1

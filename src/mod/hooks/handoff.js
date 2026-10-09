@@ -17,17 +17,20 @@
  *              removes it: a request is taken once, by its id, which the store
  *              keeps (mod.requests), and never once it has lapsed, so a
  *              watcher that gave up on it is not followed by a compaction.
- *              The compaction is the one /compact runs, with no instructions
- *              of conPACT's, as the bridge's /compact had none. While it runs
+ *              The compaction is the one /compact runs, with no focus - the
+ *              toast has none - but with the provenance clause every conPACT
+ *              compaction carries (rules.compactInstructions,
+ *              D-20261009-090), as the bridge's /compact does. While it runs
  *              the band shows it running, and after it, its outcome as the
  *              session's last result; an agent's request still waiting is
  *              left as it was.
  * @input      the host (the mods API calls register.js lends it), a plain session id
  * @output     the beat; the session compacted for a new request, and the answer
- * @dependencies mod.files, mod.requests, mod.run
+ * @dependencies mod.files, mod.requests, mod.rules, mod.run
  */
 import * as files from './files.js'
 import * as requests from './requests.js'
+import { compactInstructions } from './rules.js'
 import { show } from './run.js'
 
 // The watcher's twins are conpact.mod_handoff.BEAT_SECONDS and POLL_SECONDS.
@@ -78,7 +81,7 @@ async function answer(host, id, ask, fields) {
 
 async function compact(host) {
   try {
-    const result = await host.session.compact({})
+    const result = await host.session.compact({ instructions: compactInstructions('') })
     if (typeof result?.skip === 'string') return { action: 'skipped', reason: result.skip }
     return {
       action: 'compacted', reason: '',

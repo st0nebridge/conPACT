@@ -3,8 +3,9 @@
 @description The idle watcher: a detached process the Stop hook starts for one
              session and one watch generation. It sleeps until the notify time,
              standing down as soon as the session is used again (a newer Stop
-             re-armed it, its record shows it busy or changed since the Stop) or
-             goes away. At the notify time it binds the session from the runtime
+             re-armed it, its record shows it busy or changed since the Stop),
+             is compacted by anything else (its transcript gains a compaction
+             after the turn that armed it) or goes away. At the notify time it binds the session from the runtime
              and requires it to be idle; then, if the user switched this session
              to auto-compact, it sends /compact and shows a short notice (which
              can switch auto off again), and otherwise shows the toast and acts
@@ -111,12 +112,32 @@ def find_record(session_id: str, sessions_dir) -> dict | None:
     return None
 
 
+def compacted_since_armed(marker: dict) -> bool:
+    """Has the session been compacted since the turn that armed this watch?
+
+    By the agent's own closure request, which the mod runs just after the Stop
+    that armed this watch, by the user's /compact, or by Claude Code's automatic
+    compaction: none of them is a turn end, so none re-arms the watch, and one
+    that finishes inside the settle time leaves the record looking like the
+    Stop's own busy -> idle switch. The transcript says so plainly - a boundary
+    past where it ended at the Stop, stamped after that turn's last call (a
+    boundary Claude Code copies forward while compacting is older). A marker
+    without the transcript's size cannot tell, and does not stop the watch.
+    """
+    offset = marker.get("transcript_size")
+    if not isinstance(offset, int) or isinstance(offset, bool):
+        return False
+    return compact_progress.compacted_since(marker.get("transcript_path"), offset, marker["last_call"]) is not None
+
+
 def _claude_resumed(session_id: str, marker: dict, deps: Deps) -> str | None:
     record = find_record(session_id, deps.sessions_dir)
     if record is None:
         return "closed"
     if app_sessions.is_archived(record.get("hostSessionId"), deps.environ):
         return "archived"
+    if compacted_since_armed(marker):
+        return "already_compacted"
     return activity(record, marker, deps.clock())
 
 
@@ -194,11 +215,12 @@ def _claude_reachable(session_id: str, deps: Deps) -> bool:
 
 
 def bind_idle(session_id: str, marker: dict, deps: Deps, bridge: bool = True) -> dict:
-    """The session's record, bound from the runtime and idle since its Stop - or raise.
-    Only a send over the bridge needs Remote Control connected (`bridge`)."""
+    """The session's record, bound from the runtime, idle and not compacted since
+    its Stop - or raise. Only a send over the bridge needs Remote Control
+    connected (`bridge`)."""
     resolve = session_registry.resolve_self if bridge else session_registry.resolve_self_unbound
     record = resolve(environ=deps.environ, session_id=session_id, sessions_dir=deps.sessions_dir)
-    reason = activity(record, marker, deps.clock(), strict=True)
+    reason = "already_compacted" if compacted_since_armed(marker) else         activity(record, marker, deps.clock(), strict=True)
     if reason:
         raise Interrupted(reason)
     return record

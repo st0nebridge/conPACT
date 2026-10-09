@@ -127,7 +127,7 @@ def test_1_an_early_toast_left_alone_closes_itself_and_the_later_one_still_comes
     present, seen = _answers(clock, "ignore", "compact")
     outcome = _watch(clock, sent, present)
     assert seen == [("early", "ask"), ("expiry", "ask")]
-    assert sent == [("bridge-sess-a", "/compact")]
+    assert sent == [("bridge-sess-a", "/compact " + compaction.PROVENANCE_CLAUSE)]
     assert outcome["event"] == "compacted" and outcome["stage"] == "expiry"
     assert outcome["earlier"] == [{"stage": "early", "event": "timeout"}]
 
@@ -142,7 +142,7 @@ def test_2_compacting_from_the_early_toast_stops_the_later_one(tmp_path):
     present, seen = _answers(clock, "compact")
     outcome = _watch(clock, sent, present)
     assert seen == [("early", "ask")]
-    assert sent == [("bridge-sess-a", "/compact")]
+    assert sent == [("bridge-sess-a", "/compact " + compaction.PROVENANCE_CLAUSE)]
     assert outcome["stage"] == "early" and clock.t < EXPIRY_AT
     assert idle_state.read_marker("sess-a") is None
 
@@ -214,7 +214,7 @@ def test_5_auto_when_idle_compacts_at_the_early_stage_only(tmp_path):
     clock, sent, shown = Clock(EARLY_AT + 10), [], []
     outcome = _watch(clock, sent, shown.append)
     assert [(c.model()["stage"], c.model()["kind"]) for c in shown] == [("early", "notice")]  # told, not asked
-    assert sent == [("bridge-sess-a", "/compact")] and outcome["event"] == "auto_compacted"
+    assert sent == [("bridge-sess-a", "/compact " + compaction.PROVENANCE_CLAUSE)] and outcome["event"] == "auto_compacted"
 
 
 def test_5_auto_before_expiry_keeps_the_early_stage_silent(tmp_path):
@@ -225,5 +225,5 @@ def test_5_auto_before_expiry_keeps_the_early_stage_silent(tmp_path):
     clock, sent, shown = Clock(), [], []
     outcome = _watch(clock, sent, shown.append)
     assert [(c.model()["stage"], c.model()["kind"]) for c in shown] == [("expiry", "notice")]
-    assert sent == [("bridge-sess-a", "/compact")]
+    assert sent == [("bridge-sess-a", "/compact " + compaction.PROVENANCE_CLAUSE)]
     assert outcome["stage"] == "expiry" and clock.t >= EXPIRY_AT

@@ -46,7 +46,7 @@ def test_cli_compact_send_path(monkeypatch, capsys):
     rc = cli.main(["--self", "--compact", "--focus", "keep X"])
     out = capsys.readouterr().out
     assert rc == 0
-    assert calls == [("bridge_a", "/compact keep X", "tok")]
+    assert calls == [("bridge_a", "/compact keep X " + compaction.PROVENANCE_CLAUSE, "tok")]
     assert "used as stored" in out
     assert "HTTP 200" in out
     assert "tok" not in out.replace("token", "")
@@ -156,7 +156,7 @@ def test_cli_prints_the_resolved_target_exactly(monkeypatch, capsys):
         "sessionId: sess-a",
         "host     : local_a",
         "bridge   : bridge_a",
-        "text     : '/compact'",
+        f"text     : {'/compact ' + compaction.PROVENANCE_CLAUSE!r}",
         "dry-run  : nothing sent",
     ]
 

@@ -77,6 +77,15 @@ def test_an_early_stage_at_or_after_the_later_one_is_dropped(idle_seconds):
     assert [s["kind"] for s in ia.stages(_window(ttl=3600, last_call=1000), values)] == ["expiry"]
 
 
+def test_the_watch_records_where_the_transcript_ended_at_the_stop(tmp_path):
+    """A compaction after this turn is looked for past here (idle_watch.compacted_since_armed)."""
+    _record()
+    path = tmp_path / "session.jsonl"
+    path.write_bytes(b'{"type": "user"}\n' * 3)
+    _arm(spawner=_spawner([]), hook={**HOOK, "transcript_path": str(path)})
+    assert idle_state.read_marker("s1")["transcript_size"] == 51
+
+
 def test_arm_records_a_watch_and_starts_a_detached_watcher():
     _record()
     calls, seen = [], []
@@ -85,8 +94,8 @@ def test_arm_records_a_watch_and_starts_a_detached_watcher():
     assert marker == {"session_id": "s1", "armed_at": NOW, "last_call": NOW - 5, "ttl": 3600,
                       "context_tokens": 200_000, "fire_at": NOW - 5 + 3300, "expires_at": NOW - 5 + 3600,
                       "stages": [{"kind": "expiry", "at": NOW - 5 + 3300, "until": NOW - 5 + 3600}],
-                      "name": "Proj", "pid": 4242, "transcript_path": "t.jsonl", "host_session_id": None,
-                      "generation": marker["generation"]}
+                      "name": "Proj", "pid": 4242, "transcript_path": "t.jsonl", "transcript_size": None,
+                      "host_session_id": None, "generation": marker["generation"]}
     [(argv, env)] = calls
     assert argv == [detach.windowless_python(), "-m", "conpact.idle_watch", "s1", marker["generation"]]
     assert env == {"CLAUDE_CODE_SESSION_ID": "s1", "OTHER": "x", "PYTHONPATH": ia.SRC_ROOT}

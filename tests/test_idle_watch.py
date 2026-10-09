@@ -1,4 +1,5 @@
 """Tests for conpact.idle_watch: the detached watcher, its toast controllers and main."""
+import datetime
 import json
 import os
 import sys
@@ -145,6 +146,64 @@ def test_interruption_reasons():
     assert iw.interruption("s1", generation, marker, deps) == "superseded"
     idle_state.watch_path("s1").unlink()
     assert iw.interruption("s1", generation, marker, deps) == "cancelled"
+
+
+# --- a compaction made elsewhere -------------------------------------------
+# The marker's last_call is ARMED - 2; a boundary counts from there on.
+
+def _compacted_at(path, t):
+    stamp = datetime.datetime.fromtimestamp(t, datetime.timezone.utc).isoformat()
+    _finish(path, {**BOUNDARY, "timestamp": stamp})
+
+
+@pytest.mark.parametrize("size_field, at, compacted", [
+    ("stop", ARMED + 39, True),          # finished after the turn: the agent's own, or the user's
+    ("stop", ARMED - 2, True),           # the turn's last call itself is the earliest it can be
+    ("stop", ARMED - 3, False),          # older: a copy Claude Code wrote forward
+    (None, ARMED + 39, False),           # a marker written before the size was recorded
+    (True, ARMED + 39, False),           # not a size
+    ("12", ARMED + 39, False),
+])
+def test_compacted_since_armed(tmp_path, size_field, at, compacted):
+    path = _transcript(tmp_path)
+    size = compact_progress.size(str(path)) if size_field == "stop" else size_field
+    _, marker = _arm(transcript_path=str(path), transcript_size=size)
+    assert iw.compacted_since_armed(marker) is False
+    _compacted_at(path, at)
+    assert iw.compacted_since_armed(marker) is compacted
+
+
+def test_a_compaction_since_the_stop_interrupts_the_watch(tmp_path):
+    path = _transcript(tmp_path)
+    generation, marker = _arm(transcript_path=str(path), transcript_size=compact_progress.size(str(path)))
+    _record(changed=ARMED + 40)          # inside the settle time: the record alone cannot tell
+    deps = _deps(Clock(ARMED + 50))
+    assert iw.interruption("s1", generation, marker, deps) is None
+    _compacted_at(path, ARMED + 39)
+    assert iw.interruption("s1", generation, marker, deps) == "already_compacted"
+    with pytest.raises(iw.Interrupted) as stopped:
+        iw.bind_idle("s1", marker, deps)
+    assert stopped.value.reason == "already_compacted"
+
+
+def test_a_closed_or_archived_session_is_reported_as_such_before_a_compaction(tmp_path, monkeypatch):
+    path = _transcript(tmp_path)
+    generation, marker = _arm(transcript_path=str(path), transcript_size=compact_progress.size(str(path)))
+    _compacted_at(path, ARMED + 39)
+    deps = _deps(Clock(ARMED + 50))
+    assert iw.interruption("s1", generation, marker, deps) == "closed"
+    _record(hostSessionId="local_a")
+    monkeypatch.setattr(iw.app_sessions, "is_archived", lambda host, environ: host == "local_a")
+    assert iw.interruption("s1", generation, marker, deps) == "archived"
+
+
+def test_a_compaction_is_reported_before_the_session_looking_used(tmp_path):
+    """Compacting makes the record busy too; the log should say which it was."""
+    path = _transcript(tmp_path)
+    generation, marker = _arm(transcript_path=str(path), transcript_size=compact_progress.size(str(path)))
+    _record(status="busy", changed=ARMED + 400)
+    _compacted_at(path, ARMED + 39)
+    assert iw.interruption("s1", generation, marker, _deps(Clock(ARMED + 500))) == "already_compacted"
 
 
 def test_find_record_matches_the_session_id_only():

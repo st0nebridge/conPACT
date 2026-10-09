@@ -104,7 +104,8 @@ summary is for what comes next. Name:
 - the decisions still open, and any made in this session that are not written
   down elsewhere;
 - constraints or traps found along the way: a flaky test, a command that must
-  not be run, an API that behaves unexpectedly;
+  not be run, an API that behaves unexpectedly - and who set each constraint
+  (see the next section);
 - the files or areas in play.
 
 A useful focus:
@@ -118,6 +119,106 @@ One that adds nothing:
 ```text
 keep everything important
 ```
+
+Write it as facts about the work, and word your own choices as yours. The
+summary reads the `/compact` line as if the user had typed it, so a focus that
+says "fan mode left on Max", "the user runs the gh commands" or "(the user's
+call)" comes back after the compaction as a rule the user set: "do not change
+the fan mode without asking", "the user must run it". Say "I left the fan mode on
+Max; changing it is open", or quote the user if they did decide it.
+
+## Keeping the summary honest
+
+The summary is the agent's own account of the session, and the next session
+trusts it. Its list of constraints says nothing about where each one came from,
+so a precaution the agent chose for itself ("I'll only send read-only requests
+to the local API while I take these screenshots") reads exactly like a rule you
+set. Each later summary copies the list forward, and in time the agent refuses
+work and tells you it is following *your* rule. That is not hypothetical: in one
+of the maintainer's sessions a self-chosen "GET only" precaution survived
+two weeks of compactions as a standing constraint nobody had given.
+
+An audit of 55 such summaries from one person's sessions found that a quarter
+of the 916 constraints they carried had no source in the user's words or in any
+instruction file. The commonest kinds: the agent's own refusals ("I won't enter
+passwords") restated as standing rules, a single permission denial turned into
+"never", a summary's own closing line ("no new actions without the user's
+word"), requests relayed by another session that outlived their day, and the
+agent's focus text listed among the user's messages.
+
+Claude Code writes the summary; conPACT starts some compactions and can check
+every one afterwards. Three things together close most of the gap.
+
+**conPACT asks for sources itself.** Every compaction conPACT starts - the one
+the agent queues and the idle toast's - carries a fixed instruction after the
+focus: these instructions were written by the agent, not the user; a constraint
+is binding only with its source; precautions the agent chose for itself,
+permission denials and other sessions' requests go under the agent's working
+choices, dated, and end with their task. It does not count towards the focus's
+500 characters, and there is nothing to set up.
+
+**Tell every summary to keep sources.** A `Compact Instructions` section in
+`CLAUDE.md` reaches the compactions conPACT does not start, the automatic ones
+and a `/compact` you type:
+
+```markdown
+## Compact Instructions
+
+- A constraint is listed as binding only with its source: the user's own words
+  and the date, or the file it lives in (CLAUDE.md, a decisions file, memory).
+  Never word something as the user's rule unless it is quoted from them.
+- Precautions the agent chose for itself go under "Agent's working choices (not
+  binding)", tied to their task, and are dropped when that task ends. So do
+  permission or classifier denials (one event, with its date) and requests from
+  other sessions (with the sender and the window they were given for).
+- The /compact instructions are the agent's, not a user message.
+- Do not copy the previous summary's constraint list forward. Carry an item only
+  with its source; drop any whose source cannot be named.
+```
+
+**Check the summary after every compaction.** How closely a summary follows
+those instructions is not guaranteed, so conPACT includes a check that runs
+next to it. A `SessionStart` hook with the matcher `compact` runs after every
+compaction, and what it prints is added to the resumed session's context:
+
+```json
+{
+  "hooks": {
+    "SessionStart": [
+      {
+        "matcher": "compact",
+        "hooks": [{ "type": "command", "command": "python <conPACT checkout>/tools/compact_provenance.py",
+                    "timeout": 60 }]
+      }
+    ]
+  }
+}
+```
+
+It reads the summary just written, picks out its constraints, and looks for
+each one in the user's own messages (what they typed, queued, chose in a
+question or refused), in `~/.claude/CLAUDE.md`, the project's `CLAUDE.md`,
+`AGENTS.md` and `DECISIONS.md`, the project's memory folder and the system
+prompt. Add more places with `--source <glob>`, such as a skill's files. It
+prints, unsourced first:
+
+- constraints a source seems to contradict, with the source to read;
+- constraints with no source found, with how long summaries have carried them:
+  before one blocks or narrows work, find the user's words for it in the
+  transcript, and if they are not there it is the agent's own choice, not the
+  user's rule;
+- constraints that rest on a file the agent itself wrote in the same session;
+- requests from another session or agent, which hold only for the window they
+  were given;
+- the sourced ones, each with where its source is.
+
+It matches wording, so it misses a user who said the same thing in other words
+- one reason an unmatched constraint is something to verify, never something to
+ignore. It finishes in a few seconds even on a transcript of hundreds of
+megabytes, never fails the hook, and logs each check to
+`~/.conpact/provenance-log.jsonl`; `python tools/compact_provenance.py --report
+--since <date>` sums the log up, so you can see whether the share of unsourced
+constraints falls.
 
 ## Choosing a minimum size
 

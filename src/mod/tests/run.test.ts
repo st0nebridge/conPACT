@@ -1,13 +1,15 @@
 /**
  * @module mod.tests.run
  * @description The turn end: a queued request is run once the turn is over,
- *              in-process, with its focus as the compaction's instructions -
+ *              in-process, with its focus and the provenance clause as the
+ *              compaction's instructions -
  *              or not run, for a reason it records. Also what the mod does
  *              when another compaction or a new session gets there first,
  *              and when a reload loses a run mid-compaction.
  */
 import { expect, test } from 'claude-code/testing'
 import { adopt, execute } from '../hooks/run.js'
+import { PROVENANCE_CLAUSE } from '../hooks/rules.js'
 import { KEPT, QUEUE, SESSION, STATE, STATUS, read, turnEnd, world } from './world.ts'
 
 const NOW = 1_790_000_000_000
@@ -19,7 +21,7 @@ test('a queued request runs after the turn, once, with its focus', async ($, on)
   expect(w.compactions).toEqual([])            // not inside the turn's own event
   await w.clock.settle()
   // The engine marks the mod's own call trigger 'plugin'; the test host leaves it unset.
-  expect(w.compactions.map((c) => c.instructions)).toEqual(['keep the plan'])
+  expect(w.compactions.map((c) => c.instructions)).toEqual(['keep the plan ' + PROVENANCE_CLAUSE])
   expect(w.saved.has('request:' + SESSION)).toBe(false)
   expect(w.saved.get('result:' + SESSION)).toEqual({
     action: 'compacted', reason: '', at: NOW, started_at: NOW, focus: 'keep the plan', context_tokens: 412_880,
@@ -32,12 +34,12 @@ test('a queued request runs after the turn, once, with its focus', async ($, on)
   expect(w.compactions.length).toBe(1)
 })
 
-test('with no focus the compaction gets no instructions of ours', async ($, on) => {
+test('with no focus the compaction gets only the provenance clause', async ($, on) => {
   const w = world(on)
   await $.tool.call({ tool: QUEUE })
   await $.turn.complete(turnEnd())
   await w.clock.settle()
-  expect(w.compactions.map((c) => c.instructions)).toEqual([undefined])
+  expect(w.compactions.map((c) => c.instructions)).toEqual([PROVENANCE_CLAUSE])
 })
 
 test('nothing queued, nothing run', async ($, on) => {

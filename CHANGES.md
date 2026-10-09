@@ -3,6 +3,270 @@
 Change Log Entries. Newest first.
 
 ```yaml
+id: CU-20261009-117
+type: release
+title: "conPACT 1.4.0: summaries keep each constraint's source, and the idle watch leaves a session compacted since its turn end alone"
+description: >
+  The user asked on 2026-10-09 for this work to be pushed ("push to remote").
+  The package and the mod read 1.3.2, although the idle watch's fix
+  (CU-20261009-111), the check after every compaction (CU-20261009-113) and
+  the instruction every compaction conPACT starts now carries
+  (CU-20261009-114) have been added since. The version is 1.4.0 in
+  src/conpact/__init__.py and the mod's plugin.json. The README gains a short
+  section on checking the summary's sources, and its Windows test line reads
+  the last full run; docs/verification.md lists the two new mutation passes.
+impact: none
+affected_modules: [src/conpact/__init__.py, src/mod/.claude-plugin/plugin.json, README.md, docs/verification.md]
+related_tests: [tests/regression/test_the_mod_compacts_in_process.py, tests/test_mcp_server.py, tests/regression/test_the_published_tree_is_clean.py, tests/regression/test_the_docs_stand_on_their_own.py]
+commit_ref: "feature/compaction-provenance"
+author: "Brandon Stonebridge"
+timestamp: "2026-10-09T13:15:00+00:00"
+verification: >
+  The version tests (the mod installs at the package's version, the MCP
+  server reports it), the published-tree and docs checks and the release
+  installation tests pass: the full suite 2,962 passed, 4 skipped; the mod's
+  128 passed and its strict validation. The strict release scan of the tree
+  found two process words in the new regression tests' first lines, reworded
+  to match the others; then nothing. The release is built from the publish
+  commit and installed in a fresh environment before it is uploaded.
+```
+
+```yaml
+id: CU-20261009-116
+type: docs
+title: "The agent workflow guide covers the provenance clause, the check after every compaction, and how to word a focus"
+description: >
+  docs/agent-workflow.md: "Writing a good focus" says to write the focus as
+  facts and word the agent's own choices as its own, because the summary reads
+  the /compact line as the user's; "Keeping the summary honest" gives the
+  audit's numbers, describes the clause conPACT now adds to every compaction it
+  starts (CU-20261009-114), adds two lines to the Compact Instructions example
+  (denials and other sessions' requests are working choices; the /compact text
+  is not a user message), and replaces the reminder-only hook example with
+  conPACT's own check (CU-20261009-113): what it prints, its sources, its
+  limits, its log and --report. docs/architecture.md lists the four new
+  modules and the new tool.
+impact: none
+affected_modules: [docs/agent-workflow.md, docs/architecture.md]
+related_tests: [tests/regression/test_the_docs_stand_on_their_own.py, tests/regression/test_the_published_tree_is_clean.py]
+commit_ref: "feature/compaction-provenance"
+author: "Brandon Stonebridge"
+timestamp: "2026-10-09T11:30:00+00:00"
+verification: >
+  The docs tests for every user-facing page and the published-tree test pass.
+```
+
+```yaml
+id: CU-20261009-115
+type: fix
+title: "Two tests that already failed on this branch's base pass again"
+description: >
+  Both failures predate this branch (seen on 3af2c15 with nothing changed).
+  1. src/mod/tests/handoff.test.ts "the answer says claimed, and the band shows
+     it running, while the compaction runs" returned an empty message list from
+     its compaction hook; Claude Code 2.1.293's test host refuses one ("a
+     compaction leaves at least one"). It now returns KEPT, as the test kit
+     note in HANDOFF.md says; what the test checks is unchanged.
+  2. The published-tree test flagged CU-20261009-111's verification line for
+     naming a private workflow; it now says "the structure check".
+impact: none
+affected_modules: [src/mod/tests/handoff.test.ts, CHANGES.md]
+related_tests: [src/mod/tests/handoff.test.ts, tests/regression/test_the_published_tree_is_clean.py]
+commit_ref: "feature/compaction-provenance"
+author: "Brandon Stonebridge"
+timestamp: "2026-10-09T11:30:00+00:00"
+verification: >
+  The untouched mod from 3af2c15 fails that test (126 pass, 1 fail); with the
+  fix the mod's suite passes 128 of 128. The published-tree test passes.
+```
+
+```yaml
+id: CU-20261009-114
+type: feature
+title: "Every compaction conPACT starts asks the summary to keep each constraint's source"
+description: >
+  An audit on 2026-10-09 of 55 compaction summaries from the maintainer's own
+  sessions traced 916 listed constraints: 229 had no source in the user's
+  words or any instruction file (145 first said by the agent itself, 43 from
+  another session or agent, 21 widened from something narrower, 20
+  undecidable), and six summaries listed the agent's own /compact focus among
+  the user's messages. Of 55 constraints born in focused compactions, about 14
+  were the focus's own wording promoted to a rule ("fan mode left on Max"
+  became "do not change the fan mode without asking").
+  1. conpact.compaction.PROVENANCE_CLAUSE, one printable line, is appended
+     after the focus to every /compact the bridge sends (compact_record calls
+     build_compact_text(focus, provenance=True)); it does not count towards
+     MAX_FOCUS_CHARS. build_compact_text keeps its plain form for callers
+     that do not ask for the clause.
+  2. The mod sends the same sentence (rules.PROVENANCE_CLAUSE,
+     rules.compactInstructions) with its in-process compaction, its /compact in
+     an SDK session, and the idle toast's compaction, which before had no
+     instructions at all.
+  3. The server's instructions, the queue_compaction description and its
+     focus field say to write the focus as facts and never to word the agent's
+     own choices as the user's ("the user's call", "the user runs X") unless
+     quoting the user.
+  Tests that pinned the exact /compact text of a send now include the clause
+  (test_compaction, test_cli and the idle-path anchors test_idle_hold,
+  test_idle_notification, test_remote_control_prompt, test_toast_stages);
+  the mod's run, sdk and handoff tests likewise.
+impact: medium
+affected_modules: [src/conpact/compaction.py, src/conpact/mcp_server.py, src/conpact/mcp_tools.py, src/mod/hooks/rules.js, src/mod/hooks/run.js, src/mod/hooks/handoff.js]
+related_tests: [tests/regression/test_every_compaction_conpact_starts_asks_for_sources.py, tests/test_compaction.py, tests/test_cli.py, src/mod/tests/rules.test.ts, src/mod/tests/run.test.ts, src/mod/tests/sdk.test.ts, src/mod/tests/handoff.test.ts]
+commit_ref: "feature/compaction-provenance"
+author: "Brandon Stonebridge"
+timestamp: "2026-10-09T11:30:00+00:00"
+verification: >
+  The anchor checks the bridge's text with and without a focus, that rules.js
+  holds the very same sentence, that no mod path compacts without it, and the
+  focus wording. The full Python suite (2962 passed) and the mod's suite (128
+  of 128) pass. The mod's mutation score is 96.8% (rules.js 99.2%, run.js
+  100%; no survivor on the changed lines).
+```
+
+```yaml
+id: CU-20261009-113
+type: feature
+title: "A check after every compaction traces each constraint in the new summary to its source"
+description: >
+  The same audit as CU-20261009-114, and the case behind it: an agent chose
+  for itself that a screenshot harness would send only read-only requests to a
+  local API; a summary the next day listed "the live API is read-only for the
+  agent (GET only)" among its standing constraints, every later summary copied
+  it, and two weeks on the agent refused a diagnostic request and told the
+  user it was their rule. conPACT now ships the check as a SessionStart hook
+  with the matcher "compact" (tools/compact_provenance.py, a shim to
+  conpact.provenance), whose output Claude Code adds to the resumed session.
+  1. provenance_transcript reads the transcript in seconds even at 330 MB,
+     filtering lines as text before parsing, and sorts whose words are whose:
+     the user's (typed, queued, AskUserQuestion answers, permission denials
+     with the call refused), look-alikes kept apart with their sender (other
+     sessions, subagents and background tasks, task-chip notices - the user's
+     typing after one is kept - the app's notices, /compact), the agent's own
+     writes to rule files, every summary, and the last system prompt snapshot.
+  2. provenance_items picks the constraints out of the latest summary:
+     constraint lists in their shapes (headings, bold lines, a bullet ending in
+     a colon over a nested or flat list, "Standing constraints: a; b"), one
+     item per rule, and rule-worded sentences elsewhere, skipping the
+     user-messages quotes, quoted text and code.
+  3. provenance_match scores content-word containment (threshold 0.75; at
+     least three shared words, two for a short item; words naming the parties
+     ignored) and flags a matching text that seems to say the opposite.
+  4. provenance judges each item - the user's words; an instruction file or
+     the system prompt; a file entry the agent wrote itself this session; a
+     request from another session; contradicted; or nothing - prints them
+     unsourced first ("before it blocks or narrows work, find the user's words
+     for it"), with how long summaries have carried an unsourced one, and logs
+     each check to ~/.conpact/provenance-log.jsonl; --report sums the log up.
+     It never fails the hook.
+  Calibrated against the audit's 916 hand-traced constraints: of the 229 with
+  no source, 9 (4%) come out as sourced, 3 of them pasted prompts stored as
+  user messages; of the 687 with one, 45% are traced to it, 9% are flagged as
+  resting on an agent-written file and 2.5% as contradicted (half of those
+  correctly: a commit-prefix rule since retired). The extractor finds 77% of
+  the hand-found unsourced items and 81% of the sourced. On the 55 audited
+  summaries the check itself reports 61% with no source found, 7% resting on
+  an agent-written file, 3% from another session, 2% contradicted and 27%
+  sourced - the baseline a later --report is compared with.
+impact: medium
+affected_modules: [src/conpact/provenance.py, src/conpact/provenance_items.py, src/conpact/provenance_match.py, src/conpact/provenance_transcript.py, tools/compact_provenance.py]
+related_tests: [tests/regression/test_a_self_chosen_precaution_is_not_passed_off_as_the_users_rule.py, tests/test_provenance.py, tests/test_provenance_items.py, tests/test_provenance_match.py, tests/test_provenance_transcript.py]
+commit_ref: "feature/compaction-provenance"
+author: "Brandon Stonebridge"
+timestamp: "2026-10-09T11:30:00+00:00"
+verification: >
+  Test-first: 107 unit and regression tests. The anchor replays the GET-only
+  case. Statement and branch coverage of the four modules 93-99%. Mutation
+  score 81.9% (564 of 689; provenance_match 85.2, provenance_transcript 83.2,
+  provenance_items 82.8, provenance 78.9, where most survivors are argparse
+  help text). Strengthening the tests after a first run at 69.5% found two
+  reader gaps, both fixed: an answer record worded otherwise was never parsed
+  (the line filter now also looks for the answers key), and a shell write to a
+  relative memory/ path was not seen as a rule-file write. Run live as the
+  SessionStart hook on a real transcript (0.7 s) and on the 330 MB one (about
+  3 s). Full Python suite: 2962 passed.
+```
+
+```yaml
+id: CU-20261009-112
+type: docs
+title: "The agent workflow guide says how to keep a compaction summary honest"
+description: >
+  The user asked on 2026-10-09 for the guidance docs to carry what a session
+  of theirs had found: a compaction summary lists constraints with no source,
+  so a precaution the agent chose for itself reads like a rule the user set,
+  and each later summary copies it forward. docs/agent-workflow.md gains
+  "Keeping the summary honest": a Compact Instructions section for CLAUDE.md
+  that keeps each constraint's source and separates the agent's own working
+  choices, and a SessionStart hook with the matcher compact that reminds the
+  resumed session to check a sourceless constraint against the transcript.
+  Both are Claude Code's own settings and cover every compaction, the
+  automatic ones too; a focus covers only the queued ones. The focus advice
+  now asks for who set each constraint. docs/idle-toast.md says the watch
+  stands down after a compaction made some other way (CU-20261009-111).
+impact: none
+affected_modules: [docs/agent-workflow.md, docs/idle-toast.md]
+related_tests: [tests/regression/test_the_docs_stand_on_their_own.py, tests/regression/test_the_published_tree_is_clean.py]
+commit_ref: "feature/no-idle-compaction-after-a-compaction"
+author: "Brandon Stonebridge"
+timestamp: "2026-10-09T09:05:00+00:00"
+verification: >
+  The docs tests for every user-facing page and the published-tree test pass
+  with the full suite.
+```
+
+```yaml
+id: CU-20261009-111
+type: fix
+title: "A session compacted since its turn end is not compacted again by the idle watch"
+description: >
+  The user reported on 2026-10-09 that a session compacted itself while idle
+  although the last thing it did was compact. On 2026-10-08 its agent queued
+  a compaction at the end of its work; the Stop hook armed the idle watch at
+  21:08:44 (336,867 tokens), the mod ran /compact a second later and it
+  finished at 21:09:23 (13,971 tokens). A /compact is not a turn end, so
+  nothing re-armed the watch, and the session's record went busy and back to
+  idle inside the 120 s the watcher allows for the Stop's own switch, so the
+  watcher saw an untouched session. The early toast offered to compact it,
+  was deferred, and at 22:03:43 the expiry stage compacted 14,123 tokens to
+  22,065. The Stop-hook route never did this (it does not arm a watch at the
+  turn end it compacts), but the mod's queue is invisible to the Stop hook.
+  1. idle_arming records in the watch marker where the transcript ended at
+     the Stop (transcript_size).
+  2. compact_progress.compacted_since reads what was appended after an
+     offset, in bounded chunks, for a main-thread boundary stamped at or
+     after a moment; an unchanged transcript costs one stat.
+  3. idle_watch.compacted_since_armed asks that of the marker, from the
+     turn's last call, and the Claude adapter's resumed check and bind_idle
+     stand the watch down with already_compacted: while waiting, on a toast
+     on screen (which closes; its Compact button sends nothing), at an
+     expiry stage a deferral handed the compaction to, and at the send. It
+     covers any compaction: the agent's, the user's /compact, an automatic
+     one. A boundary copied forward from an earlier compaction is older than
+     the turn's last call and does not count; a marker without the size
+     stops nothing. Codex is unchanged: any rollout movement already ends
+     its watch.
+impact: behaviour
+affected_modules: [src/conpact/idle_arming.py, src/conpact/idle_watch.py, src/conpact/compact_progress.py]
+related_tests: [tests/regression/test_a_compacted_session_is_not_compacted_again.py, tests/test_idle_watch.py, tests/test_idle_arming.py, tests/test_compact_progress.py]
+commit_ref: "feature/no-idle-compaction-after-a-compaction"
+author: "Brandon Stonebridge"
+timestamp: "2026-10-09T09:05:00+00:00"
+verification: >
+  The regression test replays the 2026-10-08 sequence through the real
+  arming and watcher; without the fix five of its six tests fail (the sixth,
+  that a copied boundary does not count, holds either way). The full suite
+  passed (2,861, 5 skipped). Mutation (tools/mutate.py) over the three
+  modules: 756 of 768 killed (98.4%), no survivor on a changed line except
+  two timeouts in compacted_since's loop, which could spin for ever. The loop
+  was rewritten; rerun on compact_progress, 86 of 88 killed, the one left on
+  the new code a timeout (`==` to `!=` retrying an unreadable file), which
+  the unreadable-transcript test now fails in 0.4 s by refusing a retry
+  (checked by hand); the other timeout, Tracker.wait's sleep, predates this
+  change. The structure check scores 100.0.
+```
+
+```yaml
 id: CU-20261008-110
 type: docs
 title: "A guide to telling your agent when to compact"
@@ -26,7 +290,10 @@ timestamp: "2026-10-08T12:30:00+00:00"
 verification: >
   The page is checked by the existing tests for every user-facing page (no
   private workflow name, process acronym or record id; no pointer to the
-  working notes) and the published-tree test.
+  working notes) and the published-tree test. The full suite passed (2,827,
+  4 skipped), the strict release scan of the publish commit found nothing, and
+  the docs tests passed from its export. Published 2026-10-08 as bec5c9a on
+  main, untagged, built from the development commit 148aa72.
 ```
 
 ```yaml

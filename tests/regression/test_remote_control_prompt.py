@@ -174,7 +174,7 @@ def test_4_remote_control_turned_on_while_idle_gets_the_normal_toast(tmp_path):
     clock, sent, shown = Clock(), [], []
     outcome = _watch(clock, sent, lambda c: shown.append(c.model()["kind"]) or c.act("compact"))
     assert shown == ["ask"]
-    assert sent == [("bridge-a", "/compact")] and outcome["event"] == "compacted"
+    assert sent == [("bridge-a", "/compact " + compaction.PROVENANCE_CLAUSE)] and outcome["event"] == "compacted"
 
 
 # --- 5: silencing works the same --------------------------------------------

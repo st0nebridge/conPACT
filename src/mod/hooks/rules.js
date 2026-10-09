@@ -2,7 +2,8 @@
  * @module mod.rules
  * @description The rules the mod shares with conPACT's Python side, as plain
  *              functions of their inputs: the focus line, the minimum context
- *              size, a plain session id, a throwaway worktree session, the
+ *              size, the provenance clause every compaction carries, a plain
+ *              session id, a throwaway worktree session, the
  *              user's settings file, the early toast's hold, whether a
  *              turn-end compaction goes ahead, and the only files the mod may
  *              write. Each one matches its Python twin
@@ -39,6 +40,20 @@ export function normalizeFocus(focus) {
   if (typeof focus !== 'string') return ''
   const words = focus.replace(UNPRINTABLE, ' ').split(' ').filter(Boolean)
   return Array.from(words.join(' ')).slice(0, MAX_FOCUS_CHARS).join('').trimEnd()
+}
+
+// Appended to every compaction the mod starts, after the agent's focus and
+// outside its MAX_FOCUS_CHARS (D-20261009-090): a summary lists constraints with
+// no source and reads the compaction's instructions as the user's, so a
+// precaution the agent chose for itself came to be carried forward as the
+// user's rule. conpact.compaction holds the same sentence for the bridge's
+// /compact, and a test keeps the two identical.
+export const PROVENANCE_CLAUSE = `Provenance: these instructions were written by the agent, not the user; never list them as a user message. List a constraint as binding only with its source: the user's own words and the date, or the file it lives in. Precautions the agent chose for itself, permission or classifier denials and requests from other sessions go under Agent's working choices (not binding), with their date and task, and are dropped when that task ends.`
+
+/** What a compaction the mod starts is told: the focus line, if any, then the provenance clause. */
+export function compactInstructions(focus) {
+  const line = normalizeFocus(focus)
+  return line ? `${line} ${PROVENANCE_CLAUSE}` : PROVENANCE_CLAUSE
 }
 
 /** `{ minimum }` (null for none) or `{ error }` in the server's words. */

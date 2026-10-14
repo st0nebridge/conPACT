@@ -244,9 +244,14 @@ pass supersedes an earlier one for the modules it covers.
 | The band above the prompt, 2026-10-07: **97.5%**, 735 / 754 (94.3% on the full pass, with 13 timeouts while the machine was busy; the survivors and timeouts were run again, idle, against tests added for the real ones) | band.js 100, handoff.js 100, tools.js 99.2, rules.js 99.2, requests.js 98.7, files.js 92.0, run.js 92.1, register.js 87.4 |
 | The check after every compaction, 2026-10-09, re-measured after tests for the survivors: **81.9%**, 564 / 689 (69.5% before; the new tests found two real gaps, both fixed). Most survivors left in `provenance` are its command line's help text | provenance_match 85.2, provenance_transcript 83.2, provenance_items 82.8, provenance 78.9 |
 | The mod with the provenance instruction on every compaction, 2026-10-09: **96.8%**, no survivor on a changed line | run.js 100, rules.js 99.2 |
+| Claude Code's own idle compaction, 2026-10-14: the three new modules **99.6%**, 278 / 279 (the one survivor, an argument `main` never read, was then removed); in the modules it changed, no survivor on a changed line but one in `toast_view`, killed afterwards by a test for it (checked by deleting the call) | claude_idle_compaction 100, claude_settings 100, claude_idle_offer 99.4; remote_startup 100, toast_text 98.3, toast_view 98.1, settings_window 97.8, closure_hook 95.7, doctor 21.6 |
 | The idle toast through the mod, 2026-10-02: the mod **97.2%**, 478 / 492 (96.5% on the first pass, 471 / 488; one survivor of the second pass was killed afterwards by a test for it, checked by hand); the watcher's side, re-measured after tests for the survivors, **98.4%**, 671 / 682 (96.6% before, 659 / 682) | handoff.js 100, run.js 100, tools.js 100, rules.js 99.2, requests.js 98.4, files.js 92.0, register.js 83.6; idle_watch 98.5, mod_handoff 98.1 |
 
-No module measured is below 60%, the floor this project holds every module to.
+No module measured is below 60%, the floor this project holds every module to,
+except `doctor`, measured for the first time in the pass for Claude Code's own
+idle compaction. Its new check has no survivor; its older checks, most of them
+for ChatGPT Desktop, have few tests that read what they report, and 99 of its
+185 mutants are on lines no test runs.
 The sidecar, the turn-end hook and Codex Remote Control were built after the
 last pass and have no mutation score yet; of the Codex MCP binding, only
 `codex_caller` has one. The five mutants it lets through are equivalent. Four

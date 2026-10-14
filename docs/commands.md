@@ -163,7 +163,7 @@ PYTHONPATH=src python -m conpact.codex_arming
 ## Previewing the toast
 
 ```bash
-PYTHONPATH=src python -m conpact.toast_view --demo early   # ask, early, notice, failed, remote
+PYTHONPATH=src python -m conpact.toast_view --demo early   # ask, early, notice, failed, remote, claude_idle
 ```
 
 Sends nothing.

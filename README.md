@@ -184,6 +184,11 @@ before a 1-hour cache expires, in the bottom-right corner, without taking focus.
 Using the session again cancels it, and nothing is ever sent to a busy session.
 There is an optional earlier toast too: [docs/idle-toast.md](docs/idle-toast.md).
 
+Anthropic can switch on an idle compaction of Claude Code's own, which does the
+same job without asking. When it does, conPACT asks you once which one to keep:
+conPACT's, Claude Code's, or both.
+[How it works](docs/idle-toast.md#claude-codes-own-idle-compaction).
+
 ### Checking the summary's sources
 
 A summary can turn a precaution the agent chose for itself, or another
@@ -262,7 +267,7 @@ Or click **Settings** on any toast. Every setting, its default and its range:
 <p>
   <picture>
     <source media="(prefers-color-scheme: dark)" srcset="docs/images/settings-dark.png">
-    <img src="docs/images/settings-light.png" width="460" alt="The settings window, with its Idle toast, Session size, Early toast and Agent tabs, showing the Idle toast tab: the toast on or off, how long before the cache expires it comes, how long Silence lasts, and how long the result stays on screen">
+    <img src="docs/images/settings-light.png" width="460" alt="The settings window, with its Idle toast, Session size, Early toast, Agent and Claude Code tabs, showing the Idle toast tab: the toast on or off, how long before the cache expires it comes, how long Silence lasts, and how long the result stays on screen">
   </picture>
 </p>
 
@@ -287,7 +292,7 @@ The full model: [docs/security.md](docs/security.md).
 
 | | |
 |---|---|
-| **Tests** | Windows 2,962 passed (2026-10-09); Linux 2,003 passed (2026-09-25); macOS 2,178 passed (2026-09-23) |
+| **Tests** | Windows 3,147 passed (2026-10-14); Linux 2,003 passed (2026-09-25); macOS 2,178 passed (2026-09-23) |
 | **Claude Code, live** | Agent-queued and toast-driven compactions observed end to end; with the mod, an agent-queued compaction observed end to end with Remote Control off, a Desktop session compacted through `/compact`, and the band drawn in the terminal and the Desktop app |
 | **ChatGPT Desktop, live** | Sidecar compaction, turn-end arming, and a thread queueing its own compaction observed end to end |
 

@@ -51,7 +51,8 @@ def _names():
 
 def test_every_setting_is_on_exactly_one_tab():
     keys = [key for _, keys in sw.TABS for key in keys]
-    assert sorted(keys) == sorted(s.key for s in settings.SETTINGS)
+    # ...and Claude Code's own idle compaction, a switch of Claude Code's (CU-20261014-118).
+    assert sorted(keys) == sorted([s.key for s in settings.SETTINGS] + [sw.CLAUDE_IDLE])
     assert len(keys) == len(set(keys))
     assert all(keys for _, keys in sw.TABS) and len(sw.TABS) > 1
 
@@ -72,6 +73,16 @@ def test_the_window_fits_a_small_screen_and_keeps_its_size_across_tabs(root):
         heights.append(root.winfo_reqheight())
     assert max(heights) <= MAX_HEIGHT, heights
     assert len(set(heights)) == 1, heights
+
+
+def test_every_tab_fits_across_the_window(root):
+    """A fifth tab came with Claude Code's switch (CU-20261014-118): the strip has
+    the window's width less the stripe and the padding, and a tab past its edge
+    would be cut off as silently as a toast's button was."""
+    view = _view(root)
+    strip = view.tabs[_names()[0]].master.master
+    assert strip.winfo_reqwidth() <= sw.WIDTH - 44, strip.winfo_reqwidth()
+    assert all(tab.winfo_width() >= tab.winfo_reqwidth() for tab in view.tabs.values())
 
 
 def test_only_the_chosen_page_is_on_screen_and_a_click_on_a_tab_changes_it(root):

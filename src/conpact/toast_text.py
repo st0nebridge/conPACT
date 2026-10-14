@@ -3,7 +3,7 @@
 @description Every word the idle toast shows and the number formats it uses, as
              pure functions of the controller's model and the current time, so
              the wording is testable without a display.
-@input      a toast model dict (kind ask/notice/remote, stage early/expiry, name,
+@input      a toast model dict (kind ask/notice/remote/claude_idle, stage early/expiry, name,
             context_tokens, last_call, deadline, span, expires_at, mute_seconds,
             variant, compacting, detail, offer_always_on, offer_auto_off), the
             current time, a view state (from a click, or the progress of a sent
@@ -32,6 +32,11 @@ _ACTIONS = {
     "remote": (("open_session", "Open the session", "primary"),
                ("always_on", "Always on for new sessions", "secondary"),
                ("dismiss", "Not now", "ghost")),
+    # Asked once: keeping both changes nothing, so it is the quiet choice, and
+    # it goes on the second line because two buttons this long fill the row.
+    "claude_idle": (("use_conpact", "Use conPACT's", "primary"),
+                    ("use_claude", "Use Claude Code's", "secondary"),
+                    ("dismiss", "Keep both", "link")),
 }
 # The early toast is the only one with a later stage to hand the work to, so it
 # is the only one that can offer to wait: "defer" for this idle, "auto_expiry"
@@ -98,6 +103,8 @@ def _quoted(model) -> str:
 
 def title(model: dict, state: str | None = None) -> str:
     """The toast's heading; `state` is "compacting" or "compacted" once a compaction is under way."""
+    if model["kind"] == "claude_idle":
+        return "Claude Code now compacts idle sessions itself"
     name, auto = _quoted(model), model["kind"] == "notice"
     if model["kind"] == "remote":
         return f"Remote Control is off for {name}"
@@ -111,10 +118,16 @@ def title(model: dict, state: str | None = None) -> str:
 
 
 def body(model: dict, now: float) -> str:
+    if model["kind"] == "claude_idle":
+        return ("Anthropic has switched it on for your account. A large session left idle is compacted "
+                "shortly before its prompt cache expires, without asking you.")
     return f"{tokens(model['context_tokens'])} tokens · idle {duration(now - model['last_call'])}"
 
 
 def status(model: dict, now: float) -> str:
+    if model["kind"] == "claude_idle":
+        return ("conPACT's toast does the same job but asks first, so you stay in control. "
+                "Choose which one compacts your idle sessions; Settings can change it later.")
     if model["kind"] == "remote":
         if model.get("offer_always_on"):
             return "Nothing can be sent to it. Open it for the switch, or turn Remote Control on for every new session."
@@ -154,7 +167,11 @@ def state_message(state: dict) -> str:
         return "Compacting near expiry from now on."
     if kind == "startup_on":
         return "Remote Control will start with every new session."
-    if kind == "startup_failed":
+    if kind == "claude_idle_off":
+        return "Claude Code's idle compaction is off. conPACT's toast still asks."
+    if kind == "conpact_idle_off":
+        return "conPACT's idle toast is off. Claude Code compacts idle sessions itself."
+    if kind in ("startup_failed", "setting_failed"):
         return f"Couldn't change the setting: {state.get('detail')}"
     if kind == "remote_failed":
         return f"Couldn't open the session: {state.get('detail')}"
@@ -163,6 +180,8 @@ def state_message(state: dict) -> str:
 
 def actions(model: dict) -> tuple:
     found = _ACTIONS[model["kind"]]
+    if model["kind"] == "claude_idle":
+        return found
     if model["kind"] == "remote":
         # Nothing offers to change a setting that is already set.
         return tuple(a for a in found if a[0] != "always_on" or model.get("offer_always_on"))

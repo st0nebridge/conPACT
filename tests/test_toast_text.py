@@ -182,3 +182,40 @@ def test_the_remote_toast_keeps_its_wording_whatever_stage_it_is_at():
     """The auto-compact labels belong to the compact toast only."""
     assert tt.actions({**REMOTE, "stage": "early"}) == tt.actions(REMOTE)
     assert tt.title({**REMOTE, "stage": "early"}) == tt.title(REMOTE)
+
+
+# --- the one-time question about Claude Code's own idle compaction ---------------
+
+CLAUDE_IDLE = {"kind": "claude_idle", "deadline": None, "span": None}
+
+
+def test_the_claude_idle_toast_says_what_changed_and_why_it_matters():
+    assert tt.title(CLAUDE_IDLE) == "Claude Code now compacts idle sessions itself"
+    assert tt.body(CLAUDE_IDLE, 1300.0) == (
+        "Anthropic has switched it on for your account. A large session left idle is compacted "
+        "shortly before its prompt cache expires, without asking you.")
+    assert tt.status(CLAUDE_IDLE, 1300.0) == (
+        "conPACT's toast does the same job but asks first, so you stay in control. "
+        "Choose which one compacts your idle sessions; Settings can change it later.")
+
+
+def test_the_claude_idle_toast_offers_either_one_or_both():
+    assert tt.actions(CLAUDE_IDLE) == (("use_conpact", "Use conPACT's", "primary"),
+                                       ("use_claude", "Use Claude Code's", "secondary"),
+                                       ("dismiss", "Keep both", "link"))
+
+
+def test_the_claude_idle_toast_keeps_its_wording_whatever_else_the_model_holds():
+    model = {**CLAUDE_IDLE, "stage": "early", "variant": "failed", "name": "x", "offer_always_on": True}
+    assert tt.title(model) == tt.title(CLAUDE_IDLE)
+    assert tt.actions(model) == tt.actions(CLAUDE_IDLE)
+    assert tt.status(model, 0.0) == tt.status(CLAUDE_IDLE, 0.0)
+
+
+def test_each_answer_confirms_what_it_changed():
+    assert tt.state_message({"state": "claude_idle_off"}) == (
+        "Claude Code's idle compaction is off. conPACT's toast still asks.")
+    assert tt.state_message({"state": "conpact_idle_off"}) == (
+        "conPACT's idle toast is off. Claude Code compacts idle sessions itself.")
+    assert tt.state_message({"state": "setting_failed", "detail": "read-only"}) == (
+        "Couldn't change the setting: read-only")

@@ -9,11 +9,14 @@
              value is marked in place, its tab is brought forward and marked, and
              nothing is stored. Defaults fills the form in without saving. The form's logic (Form) has no Tk in it. The window runs in
              its own process: the toast's Settings link starts it with launch(),
-             so it outlives the toast.
+             so it outlives the toast. One switch on it is Claude Code's, not
+             ours: its own idle compaction, shown with Anthropic's switch for
+             the account and saved, like the rest, only by Save
+             (conpact.claude_idle_compaction, D-20261014-092).
 @input      the user's typing and clicks; the saved settings
 @output     a window on screen until closed; settings saved through conpact.settings
-@dependencies conpact.desktop, conpact.detach, conpact.home, conpact.settings,
-              conpact.toast_text, conpact.ui_style; stdlib: os, pathlib, sys, tkinter
+@dependencies conpact.claude_idle_compaction, conpact.desktop, conpact.detach, conpact.home,
+              conpact.settings, conpact.toast_text, conpact.ui_style; stdlib: os, pathlib, sys, tkinter
 """
 from __future__ import annotations
 
@@ -21,13 +24,15 @@ import os
 import pathlib
 import sys
 
-from . import desktop, detach, home, settings, toast_text, ui_style
+from . import claude_idle_compaction, desktop, detach, home, settings, toast_text, ui_style
 
 MODULE = "conpact.settings_window"
 SRC_ROOT = str(pathlib.Path(__file__).resolve().parents[1])
 WIDTH = 460
 # Every on/off setting has its own button, so the click carries which one it is.
 TOGGLE_ACTION = "toggle:"
+# Claude Code's own idle compaction: a switch of Claude Code's, not one of ours.
+CLAUDE_IDLE = "claude_idle_compaction"
 # The tabs, in order, and the settings on each. Every setting is on exactly one;
 # all on one page, the window was taller than a 1080-pixel screen (D-20260923-049).
 TABS = (
@@ -35,9 +40,24 @@ TABS = (
     ("Session size", ("min_context_fill", "min_context_tokens")),
     ("Early toast", ("idle_seconds", "early_toast_seconds")),
     ("Agent", ("closure_min_context_tokens", settings.GUARD_SPIN_OFF)),
+    ("Claude Code", (CLAUDE_IDLE,)),
 )
 TAB_ACTION = "tab:"
 NEXT_TAB, PREVIOUS_TAB = "<<NextTab>>", "<<PreviousTab>>"  # Ctrl+Tab, Ctrl+Shift+Tab
+
+
+def claude_setting(mode) -> settings.Setting:
+    """Claude Code's idle compaction as a row of the form; `mode` is Anthropic's switch, as read."""
+    return settings.Setting(
+        CLAUDE_IDLE, "Claude Code's own idle compaction",
+        "Claude Code can compact a large idle session itself, without asking, shortly before "
+        "conPACT's toast would ask. Off writes \"idleCompaction\": false into Claude Code's "
+        "settings; On takes it out again. Anthropic's switch for your account: "
+        f"{claude_idle_compaction.server_words(mode)}.", True)
+
+
+def setting_for(key: str, mode=None) -> settings.Setting:
+    return claude_setting(mode) if key == CLAUDE_IDLE else settings.get(key)
 
 
 def text_of(value) -> str:
@@ -56,12 +76,14 @@ class Form:
 
     def __init__(self):
         self.errors, self.message = {}, ""
+        self.server = claude_idle_compaction.server_mode()
         self._fill(settings.load())
 
     def _fill(self, values: dict) -> None:
         self.values = values
         self.text = {s.key: text_of(values[s.key]) for s in settings.SETTINGS if s.unit}
         self.on = {s.key: values[s.key] for s in settings.SETTINGS if s.unit is None}
+        self.claude_allowed = self.on[CLAUDE_IDLE] = claude_idle_compaction.allowed()
 
     def set_text(self, key: str, text: str) -> None:
         self.text[key] = text
@@ -72,13 +94,14 @@ class Form:
     def fill_defaults(self) -> None:
         defaults = settings.defaults()
         self.text = {key: text_of(defaults[key]) for key in self.text}
-        self.on = {key: defaults[key] for key in self.on}
+        # Claude Code's own default is to let Anthropic's switch decide.
+        self.on = {key: defaults.get(key, True) for key in self.on}
         self.errors = {}
         self.message = "Defaults filled in. Save to keep them."
 
     def save(self) -> bool:
         """Store what changed; False (nothing stored) if any value is refused or the write fails."""
-        values, self.errors = dict(self.on), {}
+        values, self.errors = {key: on for key, on in self.on.items() if key != CLAUDE_IDLE}, {}
         for key, text in self.text.items():
             try:
                 values[key] = settings.parse(key, text)
@@ -88,11 +111,14 @@ class Form:
             self.message = "Not saved: fix the marked values."
             return False
         changes = {key: value for key, value in values.items() if value != self.values[key]}
-        if not changes:
+        claude = self.on[CLAUDE_IDLE] != self.claude_allowed
+        if not (changes or claude):
             self.message = "Nothing changed."
             return True
         try:
-            saved = settings.save(changes)
+            if claude:   # first: a file of the user's that refuses the write stops the whole save
+                claude_idle_compaction.set_allowed(self.on[CLAUDE_IDLE])
+            saved = settings.save(changes) if changes else settings.load()
         except (OSError, ValueError) as exc:
             self.message = f"Not saved: {exc}"
             return False
@@ -150,7 +176,7 @@ class SettingsView:
             self.pages[name] = tk.Frame(book, bg=p["bg"])
             self.pages[name].grid(row=0, column=0, sticky="nsew")
             for key in keys:
-                self._row(self.pages[name], settings.get(key))
+                self._row(self.pages[name], setting_for(key, self.form.server))
         # Every page is as tall as the tallest, so changing tab never moves the buttons.
         book.update_idletasks()
         book.grid_rowconfigure(0, minsize=max(page.winfo_reqheight() for page in self.pages.values()))

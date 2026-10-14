@@ -1,8 +1,11 @@
 """Tests for conpact.settings_window: the settings form, its window, and how it is opened."""
+import json
 import os
 
 import pytest
 
+from conpact import claude_idle_compaction as cic
+from conpact import claude_settings
 from conpact import detach, idle_state, settings, settings_window as sw
 from tk_reading import font as _font, packing as _packing
 import window_guard
@@ -16,7 +19,7 @@ tk = pytest.importorskip("tkinter")
 def test_the_form_starts_from_the_saved_settings():
     settings.save({"min_context_tokens": 150_000, "idle_toast": False})
     form = sw.Form()
-    assert form.on == {settings.TOGGLE: False, settings.GUARD_SPIN_OFF: True}
+    assert form.on == {settings.TOGGLE: False, settings.GUARD_SPIN_OFF: True, sw.CLAUDE_IDLE: True}
     assert form.text == {"min_context_fill": "50", "min_context_tokens": "150,000",
                          "lead_seconds": "300", "idle_seconds": "",
                          "early_toast_seconds": "120", "mute_seconds": "86,400",
@@ -48,12 +51,96 @@ def test_saving_the_toggle():
 def test_each_on_off_setting_has_its_own_button_and_they_do_not_move_together():
     form = sw.Form()
     form.toggle(settings.GUARD_SPIN_OFF)
-    assert form.on == {settings.TOGGLE: True, settings.GUARD_SPIN_OFF: False}
+    assert form.on == {settings.TOGGLE: True, settings.GUARD_SPIN_OFF: False, sw.CLAUDE_IDLE: True}
     assert form.save() is True
     # The idle toast stays a file, not a stored value; the other is stored.
     assert settings.load()[settings.GUARD_SPIN_OFF] is False
     assert settings.load()[settings.TOGGLE] is True
     assert not idle_state.off_switch_path().exists()
+
+
+# --- Claude Code's own idle compaction ------------------------------------------
+
+def _claude_settings(data):
+    path = claude_settings.path()
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(data if isinstance(data, str) else json.dumps(data), encoding="utf-8")
+    return path
+
+
+def _switch(mode):
+    path = cic.config_path()
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(json.dumps({"cachedGrowthBookFeatures": {cic.FLAG: {"mode": mode}}}), encoding="utf-8")
+
+
+def test_the_form_reads_claude_codes_own_switch_and_anthropics():
+    _claude_settings({"idleCompaction": False})
+    _switch("compact")
+    form = sw.Form()
+    assert form.on[sw.CLAUDE_IDLE] is False and form.server == "compact"
+
+
+def test_turning_claude_codes_off_writes_its_setting_and_none_of_ours():
+    _claude_settings({"model": "opus"})
+    form = sw.Form()
+    form.toggle(sw.CLAUDE_IDLE)
+    assert form.save() is True
+    assert json.loads(claude_settings.path().read_text(encoding="utf-8")) == {"model": "opus",
+                                                                               "idleCompaction": False}
+    assert not settings.settings_path().exists()
+    assert form.on[sw.CLAUDE_IDLE] is False and form.message.startswith("Saved.")
+
+
+def test_turning_it_back_on_takes_the_setting_out():
+    _claude_settings({"model": "opus", "idleCompaction": False})
+    form = sw.Form()
+    form.toggle(sw.CLAUDE_IDLE)
+    assert form.save() is True
+    assert json.loads(claude_settings.path().read_text(encoding="utf-8")) == {"model": "opus"}
+
+
+def test_it_is_saved_together_with_ours():
+    form = sw.Form()
+    form.toggle(sw.CLAUDE_IDLE)
+    form.set_text("lead_seconds", "600")
+    assert form.save() is True
+    assert cic.allowed() is False and settings.load()["lead_seconds"] == 600
+
+
+def test_toggling_it_without_saving_writes_nothing():
+    form = sw.Form()
+    form.toggle(sw.CLAUDE_IDLE)
+    form.toggle(sw.CLAUDE_IDLE)
+    assert form.save() is True and form.message == "Nothing changed."
+    assert not claude_settings.path().exists()
+
+
+def test_a_claude_code_settings_file_that_cannot_be_read_stops_the_whole_save():
+    path = _claude_settings("not json")
+    form = sw.Form()
+    form.toggle(sw.CLAUDE_IDLE)
+    form.set_text("lead_seconds", "600")
+    assert form.save() is False
+    assert form.message.startswith("Not saved: ") and "will not be written" in form.message
+    assert path.read_text(encoding="utf-8") == "not json" and settings.load()["lead_seconds"] == 300
+
+
+def test_defaults_let_anthropics_switch_decide_again():
+    _claude_settings({"idleCompaction": False})
+    form = sw.Form()
+    form.fill_defaults()
+    assert form.on[sw.CLAUDE_IDLE] is True
+    assert cic.allowed() is False            # filled in, not saved
+
+
+@pytest.mark.parametrize("mode, words", [("compact", "on"), ("off", "off"), (None, "not found")])
+def test_its_row_says_what_anthropics_switch_is(mode, words):
+    row = sw.setting_for(sw.CLAUDE_IDLE, mode)
+    assert row.key == sw.CLAUDE_IDLE and row.label == "Claude Code's own idle compaction"
+    assert row.unit is None and row.default is True
+    assert row.help.endswith(f"Anthropic's switch for your account: {words}.")
+    assert sw.setting_for("lead_seconds") is settings.get("lead_seconds")
 
 
 def test_saving_nothing_changed():
@@ -119,7 +206,10 @@ def _type(entry, text):
 
 
 def test_the_window_shows_every_setting(root):
+    _switch("compact")
     view = _view(root)
+    assert view.labels[sw.CLAUDE_IDLE].cget("text") == "Claude Code's own idle compaction"
+    assert view.toggle_buttons[sw.CLAUDE_IDLE].cget("text") == "On"
     assert root.title() == "conPACT settings"
     for s in settings.SETTINGS:
         assert view.labels[s.key].cget("text") == s.label
@@ -260,8 +350,8 @@ def test_the_window_is_laid_out_the_way_it_is(root):
         info = page.grid_info()
         assert (int(info["row"]), int(info["column"]), info["sticky"]) == (0, 0, "nesw")
         assert len(page.winfo_children()) == len(keys)
-        rows += zip((settings.get(key) for key in keys), page.winfo_children())
-    assert len(rows) == len(settings.SETTINGS)
+        rows += zip((sw.setting_for(key) for key in keys), page.winfo_children())
+    assert len(rows) == len(settings.SETTINGS) + 1     # and Claude Code's own idle compaction
     for setting, frame in rows:
         assert _packing(frame) == ("top", "x", 0, 0, (px(10), 0))
         label, line, help_text, error = frame.winfo_children()
@@ -355,7 +445,7 @@ def test_the_toggle_shows_the_saved_state_and_flips_back(root):
 
 def test_one_toggle_button_per_on_off_setting_and_a_click_moves_only_its_own(root):
     view = _view(root)
-    assert set(view.toggle_buttons) == {s.key for s in settings.SETTINGS if s.unit is None}
+    assert set(view.toggle_buttons) == {s.key for s in settings.SETTINGS if s.unit is None} | {sw.CLAUDE_IDLE}
     view.select("Agent")
     root.update()  # Tk drops a click on a page that is not showing
     view.toggle_buttons[settings.GUARD_SPIN_OFF].event_generate("<ButtonRelease-1>")
@@ -382,6 +472,7 @@ def test_the_tabs_are_the_ones_the_settings_page_names():
         ("Session size", ("min_context_fill", "min_context_tokens")),
         ("Early toast", ("idle_seconds", "early_toast_seconds")),
         ("Agent", ("closure_min_context_tokens", "guard_spin_off_sessions")),
+        ("Claude Code", ("claude_idle_compaction",)),
     )
 
 

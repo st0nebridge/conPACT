@@ -19,7 +19,9 @@
              stays up comes from the user's settings. `--demo` shows a sample
              that sends nothing. Dismissing a pending action hides the window
              immediately while its event loop retains the worker's result;
-             dismissal never cancels or resubmits a compaction.
+             dismissal never cancels or resubmits a compaction. A model with no
+             deadline (the one-time question about Claude Code's own idle
+             compaction) has no bar and waits for its answer.
 @input      a controller with model() / poll() / act(action) / progress()
 @output     a window on screen until the controller or the user closes it
 @dependencies conpact.desktop, conpact.detach, conpact.idle_state,
@@ -44,7 +46,7 @@ TICK_MS = 500
 FADE_STEPS = 8
 ALPHA = 0.98
 CLOSE_AFTER = {"compacted": 8000, "untracked": 4000, "auto_off": 2500, "startup_on": 2500,
-               "deferred": 3000, "auto_expiry_set": 3000}
+               "deferred": 3000, "auto_expiry_set": 3000, "claude_idle_off": 4000, "conpact_idle_off": 4000}
 # other results stay until closed
 DEMO_COMPACT_SECONDS = 4.0
 
@@ -115,7 +117,10 @@ class ToastView:
         self.status = self._text(content, toast_text.status(self.model, now), (FONT, 9), p["muted"], wrap)
         self.status.pack(fill="x", pady=(self.px(1), 0))
 
-        self.bar = tk.Canvas(content, height=self.px(3), bg=p["track"], highlightthickness=0, bd=0)
+        # A toast with no deadline counts nothing down: its bar is drawn in the
+        # card's own colour and never filled, so the buttons sit where they always do.
+        track = p["track"] if self.counts_down() else p["bg"]
+        self.bar = tk.Canvas(content, height=self.px(3), bg=track, highlightthickness=0, bd=0)
         self.bar.pack(fill="x", pady=(self.px(10), self.px(12)))
         self.bar_fill = self.bar.create_rectangle(0, 0, 0, self.px(3), fill=p["accent"], width=0)
 
@@ -140,6 +145,9 @@ class ToastView:
             self.buttons[action] = button
         if self.links is not None:
             self.links.pack(fill="x", pady=(self.px(10), 0))
+
+    def counts_down(self) -> bool:
+        return self.model.get("deadline") is not None
 
     def _text(self, parent, text, font, color, wrap):
         import tkinter as tk
@@ -248,8 +256,9 @@ class ToastView:
             now = self.clock()
             self.status.configure(text=toast_text.status(self.model, now))
             self.body.configure(text=toast_text.body(self.model, now))
-            span = self.model["span"] or 1
-            self._fill(min(1.0, max(0.0, (self.model["deadline"] - now) / span)))
+            if self.counts_down():
+                span = self.model["span"] or 1
+                self._fill(min(1.0, max(0.0, (self.model["deadline"] - now) / span)))
         self.root.after(TICK_MS, self.tick)
 
     def _fill(self, fraction: float) -> None:
@@ -336,6 +345,8 @@ class DemoController:
 
     def model(self) -> dict:
         now = self.opened
+        if self.kind == "claude_idle":
+            return {"kind": "claude_idle", "deadline": None, "span": None}
         if self.kind in ("ask", "early", "remote"):
             return {"kind": "remote" if self.kind == "remote" else "ask",
                     **({"stage": "early"} if self.kind == "early" else {}),
@@ -360,6 +371,8 @@ class DemoController:
             return {"state": "deferred" if action == "defer" else "auto_expiry_set"}
         if action == "always_on":
             return {"state": "startup_on"}   # and changes no setting
+        if action in ("use_conpact", "use_claude"):
+            return {"state": "claude_idle_off" if action == "use_conpact" else "conpact_idle_off"}   # nor these
         time.sleep(0.6)  # stands in for the bridge call
         if action == "turn_off_auto":
             return {"state": "auto_off"}
@@ -376,7 +389,8 @@ class DemoController:
 def main(argv=None) -> int:
     parser = argparse.ArgumentParser(prog="python -m conpact.toast_view",
                                      description="Show a sample idle toast. Nothing is sent.")
-    parser.add_argument("--demo", choices=("ask", "early", "notice", "failed", "remote"), required=True)
+    parser.add_argument("--demo", choices=("ask", "early", "notice", "failed", "remote", "claude_idle"),
+                        required=True)
     parser.add_argument("--seconds", type=float, default=30.0, help="close after this long")
     args = parser.parse_args(argv)
     controller = DemoController(args.demo, args.seconds)

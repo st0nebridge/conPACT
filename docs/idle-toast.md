@@ -17,6 +17,9 @@ The same toast covers ChatGPT Desktop threads; the differences are listed
   or ignore it.
 - Using the session again cancels the toast. Nothing is ever sent to a busy
   session.
+- If Anthropic switches on Claude Code's own idle compaction for your account,
+  conPACT asks you once which of the two you want
+  ([below](#claude-codes-own-idle-compaction)).
 
 ## When a session is watched
 
@@ -137,10 +140,53 @@ switch is. The watcher reads the record at the notify time, so a switch you
 flipped while the session sat idle gets you the normal toast instead. It asks
 once per idle stretch, not at both stages.
 
+## Claude Code's own idle compaction
+
+Claude Code can compact an idle session by itself. Anthropic switches this on
+per account, from its side. When it is on, a session of 200,000 tokens or more
+is compacted at 90% of its one-hour cache, about 54 minutes after the last
+reply. That is a minute before conPACT's toast would come, and it does not ask.
+conPACT then stands down, as it does for any compaction it did not send, so for
+those sessions its toast never appears.
+
+conPACT reads where it stands from three places:
+
+- **Anthropic's switch**, as Claude Code last cached it in `~/.claude.json`:
+  on, off, or logging only (watching without compacting). The switch is an
+  undocumented flag with an internal name. If conPACT cannot find it, it says
+  "not found" and never guesses "off".
+- **Your own opt-out**, `"idleCompaction": false` in `~/.claude/settings.json`.
+  It needs Claude Code 2.1.290 or later; an older version ignores it.
+- **Auto-compaction.** Idle compaction is part of it and never runs while
+  `autoCompactEnabled` is false or `DISABLE_AUTO_COMPACT` or `DISABLE_COMPACT`
+  is set.
+
+**The question, asked once.** At the first turn end after Anthropic's switch is
+on, if you have not opted out, auto-compaction is on and conPACT's idle toast is
+on, a toast asks which one should compact your idle sessions:
+
+- **Use conPACT's** writes `"idleCompaction": false` into Claude Code's
+  settings, keeping every other key. conPACT's toast goes on asking, with every
+  choice it offers.
+- **Use Claude Code's** switches conPACT's idle toast off. Claude Code's
+  settings are not touched.
+- **Keep both** changes nothing. Claude Code compacts the large sessions
+  without asking, and conPACT's toast comes for the rest.
+
+The toast waits for your answer. It is never asked again: not after you answer,
+not if you close it, and not if Anthropic switches its idle compaction off and
+on again. Change your mind on the **Claude Code** tab of the
+[settings](settings.md#claude-codes-own-idle-compaction).
+
+conPACT never turns auto-compaction off. That would also lose the compaction
+Claude Code runs when a session reaches its context limit. `python
+tools/doctor.py` reports where Claude Code's idle compaction stands.
+
 ## Previewing the toast
 
 Nothing is sent. `--demo` takes `ask`, `early` (the one with **Near expiry** and
-the two standing choices), `notice`, `failed` or `remote`:
+the two standing choices), `notice`, `failed`, `remote` or `claude_idle` (the
+question above, which changes no setting):
 
 ```bash
 PYTHONPATH=src python -m conpact.toast_view --demo early

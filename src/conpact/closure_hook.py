@@ -12,14 +12,16 @@
              appended to a small log that never contains the token. Unless it
              has just sent /compact, it then hands the turn end to the idle
              notifier (idle_arming), which may start a watcher for the session,
-             and sweeps ChatGPT Desktop's threads (codex_arming), which has no
-             turn end of its own to be called at.
+             asks the user once - if Anthropic has switched Claude Code's own
+             idle compaction on - which of the two should compact idle sessions
+             (claude_idle_offer), and sweeps ChatGPT Desktop's threads
+             (codex_arming), which has no turn end of its own to be called at.
              The hook never blocks the stop, never writes to stdout, stays silent
              when nothing was claimed, and never raises.
 @input      hook JSON on stdin (session_id, transcript_path, cwd, ...)
 @output     process exit code 0 (always); a one-line status on stderr and one
             log line per claimed request
-@dependencies conpact.bridge_client, conpact.compaction,
+@dependencies conpact.bridge_client, conpact.claude_idle_offer, conpact.compaction,
               conpact.codex_arming, conpact.context_meter, conpact.home, conpact.idle_arming,
               conpact.session_registry, conpact.settings,
               conpact.token_store; stdlib: json, sys, time
@@ -30,7 +32,7 @@ import json
 import sys
 import time
 
-from . import (bridge_client, codex_arming, compaction, context_meter, home, idle_arming,
+from . import (bridge_client, claude_idle_offer, codex_arming, compaction, context_meter, home, idle_arming,
                session_registry, settings, token_store)
 
 LOG_PATH = compaction.STATE_DIR / "hook-log.jsonl"
@@ -141,6 +143,7 @@ def main(argv=None) -> int:
         sys.stderr.write(f"[conpact.closure_hook] {status.get('action')}: {status.get('reason', '')}\n")
     if status.get("action") != "compacted":
         idle_arming.run(hook_input)  # logs its own outcome; never raises
+        claude_idle_offer.run()     # asked once; logs its own outcome; never raises
         # Codex has no turn end of its own to hook (D-20260921-031), so its
         # threads are swept here: this is the one moment conPACT is reliably
         # running on a machine that has both apps. A machine with only ChatGPT

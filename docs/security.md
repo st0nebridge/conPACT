@@ -104,9 +104,15 @@ in the server's place. It is held to the same rules, plus some of its own:
   opener (the shell, `open` or `xdg-open`) a link conPACT built from a checked
   id, as a single argument and never through a shell.
 - conPACT never turns Remote Control on for a session, never restarts one and
-  never writes to another session. The one Claude Code setting it can write,
-  `remoteControlAtStartup`, is written only when you click **Always on for new
-  sessions**, and every other key is kept.
+  never writes to another session. It can write two of Claude Code's settings,
+  each only on your click, keeping every other key:
+  - `remoteControlAtStartup`, when you click **Always on for new sessions**.
+  - `idleCompaction: false`, when you choose **Use conPACT's** on the one-time
+    question about Claude Code's own idle compaction, or save that switch as
+    off on the settings window's **Claude Code** tab. Switching it back on
+    removes the key.
+
+  Neither can be written by the command-line tool or by an agent.
 
 ### The token never leaks
 

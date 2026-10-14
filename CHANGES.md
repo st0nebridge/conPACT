@@ -3,6 +3,92 @@
 Change Log Entries. Newest first.
 
 ```yaml
+id: CU-20261014-119
+type: release
+title: "conPACT 1.5.0: conPACT reads Claude Code's own idle compaction, asks once which one to keep, and can switch it off"
+description: >
+  The user asked on 2026-10-14 for this work to be published ("publish it").
+  The package and the mod read 1.4.0, although Claude Code's own idle
+  compaction is now read, asked about once and switchable (CU-20261014-118).
+  The version is 1.5.0 in src/conpact/__init__.py and the mod's plugin.json.
+  The README's settings screenshots, light and dark, are taken again: the
+  window has a fifth tab, Claude Code. They are taken the same way as before,
+  from the window under a throwaway home at 96 DPI, so they show the default
+  settings; apart from the new tab they match the old ones pixel for pixel.
+  The README's Windows test line reads the last full run. docs/verification.md
+  lists the feature's mutation pass and says that doctor, measured for the
+  first time in it, is below the 60% floor: its new check has no survivor,
+  and its older checks have few tests that read what they report.
+impact: none
+affected_modules: [src/conpact/__init__.py, src/mod/.claude-plugin/plugin.json, README.md, docs/images/settings-light.png, docs/images/settings-dark.png, docs/verification.md]
+related_tests: [tests/regression/test_the_mod_compacts_in_process.py, tests/test_mcp_server.py, tests/regression/test_the_published_tree_is_clean.py, tests/regression/test_the_docs_stand_on_their_own.py]
+commit_ref: "feature/release-1.5.0"
+author: "Brandon Stonebridge"
+timestamp: "2026-10-14T17:10:00+00:00"
+verification: >
+  The version tests (the mod installs at the package's version, the MCP
+  server reports it), the published-tree and docs checks pass. The release is
+  built from the publish commit, scanned, and tested and installed from its
+  own export before it is uploaded.
+```
+
+```yaml
+id: CU-20261014-118
+type: feature
+title: "conPACT reads Claude Code's own idle compaction, asks once which one to keep, and can switch it off"
+description: >
+  The maintainer asked on 2026-10-14 for conPACT to detect whether Anthropic
+  has switched on Claude Code's own idle compaction, to toggle it for the user,
+  and to notify the user once if it becomes enabled: explain why (conPACT does
+  the same job but keeps them in control) and offer to turn conPACT's idle
+  toast off instead. Since 2.1.286 Claude Code can compact a session of 200,000
+  tokens or more at 0.9 of its one-hour cache, about 54 minutes, a minute before
+  conPACT's toast near expiry, without asking; the watch then stood down
+  (CU-20261009-111), so on exactly the sessions the toast is for, the user's
+  choices were overridden without a word.
+  conpact.claude_idle_compaction reads Anthropic's switch as Claude Code caches
+  it in ~/.claude.json (an internally named flag, so one that cannot be found is
+  "unknown", never "off"), the user's "idleCompaction" opt-out and whether
+  auto-compaction is on (autoCompactEnabled, DISABLE_AUTO_COMPACT,
+  DISABLE_COMPACT); it writes the opt-out or removes it. conpact.claude_settings
+  is the writer for Claude Code's user settings that conpact.remote_startup
+  now uses too: one key at a time, every other key kept, atomic, an unparsable
+  file refused. conpact.claude_idle_offer, called from the Stop hook, claims
+  ~/.conpact/claude-idle-offer.json and starts one toast the first time the
+  switch is on, the user has not opted out, auto-compaction is on and conPACT's
+  idle toast is on: "Use conPACT's" (writes the opt-out), "Use Claude Code's"
+  (switches conPACT's idle toast off) or "Keep both". It waits for an answer
+  and is never asked again. The settings window has a fifth tab, "Claude Code",
+  with the switch and Anthropic's state, saved only by Save. doctor reports it.
+  The toast view takes a model with no deadline (no countdown bar).
+impact: behaviour
+affected_modules: [src/conpact/claude_settings.py, src/conpact/claude_idle_compaction.py, src/conpact/claude_idle_offer.py, src/conpact/remote_startup.py, src/conpact/closure_hook.py, src/conpact/toast_text.py, src/conpact/toast_view.py, src/conpact/settings_window.py, src/conpact/doctor.py, docs/idle-toast.md, docs/settings.md, docs/architecture.md, docs/security.md, docs/commands.md, README.md]
+related_tests: [tests/regression/test_claude_idle_compaction_is_asked_about_once.py, tests/regression/test_toast_buttons_fit_the_card.py, tests/regression/test_settings_window_fits_the_screen.py, tests/test_claude_settings.py, tests/test_claude_idle_compaction.py, tests/test_claude_idle_offer.py, tests/test_remote_startup.py, tests/test_closure_hook.py, tests/test_toast_text.py, tests/test_toast_view.py, tests/test_settings_window.py, tests/test_doctor.py]
+commit_ref: "feature/claude-idle-compaction"
+author: "Brandon Stonebridge"
+timestamp: "2026-10-14T15:20:00+00:00"
+verification: >
+  The full suite: 3,147 passed, 4 skipped (the on-screen tests deselected),
+  run after the last change. The anchor
+  tests/regression/test_claude_idle_compaction_is_asked_about_once.py
+  replays it through the real Stop hook, toast controller and settings form;
+  with the Stop hook's call removed, 8 of its 16 tests fail. The button-fit
+  test covers the new toast and was checked by lengthening a label until it
+  failed; the window-size test covers the fifth tab (the strip asks 374 of
+  its 416 px; the window stays 558 px high at 96 DPI). Mutation: the three new
+  modules 278 of 279 (99.6%), the one survivor an argument main never read,
+  since removed; toast_text 282/287, closure_hook 111/116, remote_startup 8/8,
+  settings_window 359/367, toast_view 458/467, with no survivor on a changed
+  line except toast_view's show() layout call, which a new test now kills
+  (checked by deleting it). doctor's new check has no survivor; its older
+  Codex checks are mostly uncovered, as before. The module-structure check
+  scores 100.0. The demo
+  (python -m conpact.toast_view --demo claude_idle) showed the question on
+  screen and closed. On this machine Anthropic's cached switch read
+  {"mode": "off"} on 2026-10-14, so the live question has not been seen yet.
+```
+
+```yaml
 id: CU-20261009-117
 type: release
 title: "conPACT 1.4.0: summaries keep each constraint's source, and the idle watch leaves a session compacted since its turn end alone"
@@ -29,6 +115,14 @@ verification: >
   found two process words in the new regression tests' first lines, reworded
   to match the others; then nothing. The release is built from the publish
   commit and installed in a fresh environment before it is uploaded.
+  Published 2026-10-09 as b4f040c on main, appended to the 1.3.2 line, with
+  the tag v1.4.0 and its release, built from the development commit 7d9790e.
+  The strict scan of the tree, the commit, the tag, the notes and the unpacked
+  wheel and source archive found nothing. From its export, outside any
+  checkout, 2,959 tests passed (7 skipped: no git checkout, or POSIX-only),
+  the mod's 128 passed with strict validation, and the wheel installed in a
+  fresh environment answered --help. The release's files were downloaded back
+  and matched their sums before the draft was published.
 ```
 
 ```yaml

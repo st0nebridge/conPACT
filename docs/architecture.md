@@ -20,7 +20,7 @@ imports.
 | [`bridge_client.py`](../src/conpact/bridge_client.py) | The single source of truth for the bridge wire format and what counts as accepted (2xx) | — |
 | [`context_meter.py`](../src/conpact/context_meter.py) | Measure a session's live context size from its transcript | session_registry |
 | [`compaction.py`](../src/conpact/compaction.py) | Construct `/compact` text, with the provenance clause every send carries; record, read, cancel and claim requests; orchestrate a send | bridge_client, session_registry, token_store |
-| [`closure_hook.py`](../src/conpact/closure_hook.py) | The Stop hook: claim a request at most once, check the minimum size, fire, report and log; then hand the turn end to the idle notifier and sweep Codex threads | bridge_client, codex_arming, compaction, context_meter, idle_arming, session_registry, settings, token_store |
+| [`closure_hook.py`](../src/conpact/closure_hook.py) | The Stop hook: claim a request at most once, check the minimum size, fire, report and log; then hand the turn end to the idle notifier, ask once about Claude Code's own idle compaction, and sweep Codex threads | bridge_client, claude_idle_offer, codex_arming, compaction, context_meter, idle_arming, session_registry, settings, token_store |
 | [`spin_off.py`](../src/conpact/spin_off.py) | Is the calling session a throwaway `.claude/worktrees/...` checkout, and is the refusal switched on? | settings |
 | [`cli.py`](../src/conpact/cli.py) | The command-line surface: self-only, `/compact`-only | bridge_client, compaction, session_registry, token_store |
 | [`mcp_tools.py`](../src/conpact/mcp_tools.py) | The MCP tools: queue, cancel, hold, inspect, for the calling session on either platform | codex_caller, codex_meter, codex_threads, compaction, context_meter, idle_state, session_registry, spin_off |
@@ -63,8 +63,11 @@ Claude Code's own test host; the Python suite runs them too.
 | [`compact_progress.py`](../src/conpact/compact_progress.py) | When a sent `/compact` has finished: the first compact boundary in the transcript stamped after the send | — |
 | [`app_sessions.py`](../src/conpact/app_sessions.py) | The desktop app's own record of a session, read-only: is it archived, and what link opens it? Found in Electron's per-user folder on each platform | — |
 | [`session_ready.py`](../src/conpact/session_ready.py) | Read-only: what each live session still needs (Remote Control, the MCP server, the hook); processes read with PowerShell on Windows, `ps` elsewhere | closure_hook, idle_state, session_registry |
-| [`doctor.py`](../src/conpact/doctor.py) | Read-only installed Codex health: Python, Codex login, MCP config, sidecar, bundled build, state access; reports Claude's optional Keychain login separately | codex_home, codex_sidecar_install, codex_threads, token_store |
-| [`remote_startup.py`](../src/conpact/remote_startup.py) | One key of Claude Code's own settings, `remoteControlAtStartup`, written only on the toast's click | session_registry |
+| [`doctor.py`](../src/conpact/doctor.py) | Read-only installed Codex health: Python, Codex login, MCP config, sidecar, bundled build, state access; reports Claude's optional Keychain login and Claude Code's own idle compaction separately | claude_idle_compaction, codex_home, codex_sidecar_install, codex_threads, idle_state, token_store |
+| [`claude_settings.py`](../src/conpact/claude_settings.py) | Claude Code's own user settings file, read whole and written one key at a time: every other key kept, atomic, an unparsable file refused | session_registry |
+| [`remote_startup.py`](../src/conpact/remote_startup.py) | One key of Claude Code's own settings, `remoteControlAtStartup`, written only on the toast's click | claude_settings |
+| [`claude_idle_compaction.py`](../src/conpact/claude_idle_compaction.py) | Claude Code's own idle compaction: Anthropic's switch as Claude Code cached it, the user's `idleCompaction` opt-out, auto-compaction; is it active; write or remove the opt-out | claude_settings, session_registry |
+| [`claude_idle_offer.py`](../src/conpact/claude_idle_offer.py) | Ask once, at a turn end after Anthropic switches it on, which idle compaction the user wants; the question's toast controller; the answer applied and recorded | claude_idle_compaction, compaction, detach, idle_state, settings, toast_view |
 | [`detach.py`](../src/conpact/detach.py) | Start a process that outlives the hook and holds none of its handles; is a pid alive | — |
 | [`provenance.py`](../src/conpact/provenance.py) | The post-compaction provenance check (a `SessionStart` hook, matcher `compact`): trace each constraint of the summary just written to the user's words, an instruction file, the system prompt, a file the agent wrote itself, another session - or nothing; print it unsourced first, log it, sum the log up | home, provenance_items, provenance_match, provenance_transcript |
 | [`provenance_transcript.py`](../src/conpact/provenance_transcript.py) | Read a transcript for that check, sorting whose words are whose: the user's (typed, queued, answers, denials), look-alikes (other sessions, subagents, task chips, `/compact`), the agent's writes to rule files, the summaries, the system prompt | — |
@@ -81,7 +84,7 @@ Claude Code's own test host; the Python suite runs them too.
 | [`desktop.py`](../src/conpact/desktop.py) | The desktop's theme and handing it a link, on Windows, macOS and Linux; DPI, work area and focus-free showing on Windows, with a safe default elsewhere | — |
 | [`settings.py`](../src/conpact/settings.py) | The user's settings: meaning, default, range; read, check, save (all or nothing), reset | compaction, idle_state |
 | [`settings_cli.py`](../src/conpact/settings_cli.py) | The settings command: show, set, reset, or open the window | settings, settings_window |
-| [`settings_window.py`](../src/conpact/settings_window.py) | The settings window (stdlib Tk) and the form behind it | desktop, detach, settings, toast_text, ui_style |
+| [`settings_window.py`](../src/conpact/settings_window.py) | The settings window (stdlib Tk) and the form behind it, with Claude Code's own idle compaction on a tab of its own | claude_idle_compaction, desktop, detach, settings, toast_text, ui_style |
 
 ### ChatGPT Desktop: reading
 
@@ -159,7 +162,8 @@ writes lives inside Claude Code's `~/.claude/` or ChatGPT Desktop's `~/.codex/`.
 | `idle/mute/<sessionId>.json` | Silenced until, and the call it was silenced after. |
 | `idle/hold/<sessionId>.json` | The early toast is held until, set by the agent's `hold_idle_toast`. |
 | `idle/toasts/slot-N` | Screen slots, so toasts do not overlap. |
-| `idle-log.jsonl` | What the watcher did: armed, not_armed, superseded, resumed, cancelled, closed, archived, expired, timeout, dismissed, muted, compacted, compacted_auto_on, auto_compacted, failed, error, and the Codex equivalents. Each with its stage. |
+| `idle-log.jsonl` | What the watcher did: armed, not_armed, superseded, resumed, cancelled, closed, archived, expired, timeout, dismissed, muted, compacted, compacted_auto_on, auto_compacted, failed, error, and the Codex equivalents. Each with its stage. Also the question about Claude Code's own idle compaction: claude_idle_offered, claude_idle_answered (with the answer), claude_idle_unanswered, claude_idle_failed, claude_idle_moot, claude_idle_offer_error. |
+| `claude-idle-offer.json` | When the question about Claude Code's own idle compaction was asked, what Anthropic's switch said, and the answer. While it exists the question is never asked again. |
 | `codex-sidecar.json` | The running sidecar's address, pid, injection tag and token. |
 | `codex-active.json` | Which Codex threads are mid-turn, and which are calling conPACT. |
 | `codex-host.json` | conPACT's own app-server for Codex Remote Control. |

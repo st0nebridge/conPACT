@@ -160,6 +160,18 @@ def test_main_hands_the_turn_end_to_the_idle_notifier_unless_it_compacted(monkey
     assert seen == ([{"session_id": "s1", "transcript_path": "t"}] if armed else [])
 
 
+@pytest.mark.parametrize("action, asked", [("skip", True), ("failed", True), ("compacted", False)])
+def test_main_asks_about_claude_codes_idle_compaction_at_a_turn_end_it_did_not_compact(monkeypatch, action, asked):
+    from conpact import claude_idle_offer, idle_arming
+    seen = []
+    monkeypatch.setattr(ch, "run", lambda hook_input: {"action": action, "reason": "r"})
+    monkeypatch.setattr(idle_arming, "run", lambda hook_input: {"action": "skip"})
+    monkeypatch.setattr(claude_idle_offer, "run", lambda: seen.append("asked") or {"action": "skip"})
+    monkeypatch.setattr("sys.stdin", io.StringIO(json.dumps({"session_id": "s1"})))
+    assert ch.main() == 0
+    assert seen == (["asked"] if asked else [])
+
+
 def _fired(**kw):
     return {"sent": True, "text": "/compact", "http_status": 200}
 

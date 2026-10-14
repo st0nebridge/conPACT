@@ -6,9 +6,10 @@
              never reads a Codex token: it asks the Codex CLI whether its own
              login is usable and reaches ChatGPT Desktop through the
              already-authenticated app-server. Contributed by Lance Sandino.
-@input      the environment; Codex's config.toml and hooks; the sidecar's status
+@input      the environment; Codex's config.toml and hooks; the sidecar's status;
+            Claude Code's idle-compaction state
 @output     one line per check (OK, WARN, INFO or FAIL); exit 1 if any failed
-@dependencies conpact.codex_cli, conpact.codex_home, conpact.codex_host,
+@dependencies conpact.claude_idle_compaction, conpact.codex_cli, conpact.codex_home, conpact.codex_host,
               conpact.codex_sidecar_install, conpact.codex_threads,
               conpact.token_store; stdlib: dataclasses, os, platform, shutil,
               subprocess, sys, tomllib
@@ -23,8 +24,8 @@ import subprocess
 import sys
 import tomllib
 
-from . import (codex_cli, codex_home, codex_host, codex_sidecar_install,
-               codex_threads, token_store)
+from . import (claude_idle_compaction, codex_cli, codex_home, codex_host, codex_sidecar_install,
+               codex_threads, idle_state, token_store)
 
 
 @dataclasses.dataclass(frozen=True)
@@ -127,6 +128,21 @@ def _claude_login() -> Check:
                  f"{source}, {'fresh' if fresh else 'expired'}; not used by Codex or ChatGPT Desktop")
 
 
+def _claude_idle(environ=None) -> Check:
+    """Claude Code's own idle compaction, beside conPACT's toast: one of them should do the job."""
+    name = "Claude Code idle compaction"
+    found = claude_idle_compaction.state(environ)
+    switch = f"Anthropic's switch {claude_idle_compaction.server_words(found['server'])}"
+    if not found["allowed"]:
+        return Check("OK", name, f"off (idleCompaction: false); {switch}")
+    if not found["active"]:
+        return Check("INFO" if found["server"] is None else "OK", name, f"not running; {switch}")
+    if idle_state.is_enabled():
+        return Check("WARN", name, "on, beside conPACT's idle toast: Claude Code compacts large idle "
+                                   "sessions without asking; choose one on the Claude Code tab of the settings")
+    return Check("OK", name, "on; conPACT's idle toast is off")
+
+
 def checks(environ=None, runner=subprocess.run) -> list[Check]:
     env = os.environ if environ is None else environ
     python_ok = sys.version_info >= (3, 11)
@@ -138,6 +154,7 @@ def checks(environ=None, runner=subprocess.run) -> list[Check]:
     found.extend(_codex_cli(env))
     found.append(_codex_state(env))
     found.append(_claude_login())
+    found.append(_claude_idle(env))
     return found
 
 

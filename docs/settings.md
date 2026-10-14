@@ -16,11 +16,12 @@ python tools/settings.py reset idle_seconds
 python tools/settings.py reset              # everything back to defaults
 ```
 
-In the window the settings are on four tabs: **Idle toast** (the toast itself,
+In the window the settings are on five tabs: **Idle toast** (the toast itself,
 when it comes, how long **Silence** lasts and how long a result stays up),
-**Session size** (which sessions it comes for), **Early toast**, and **Agent**
-(compactions an agent queues). Ctrl+Tab and Ctrl+Shift+Tab move between them.
-If a value is refused, its tab is marked and brought forward.
+**Session size** (which sessions it comes for), **Early toast**, **Agent**
+(compactions an agent queues), and **Claude Code** (its own idle compaction,
+[below](#claude-codes-own-idle-compaction)). Ctrl+Tab and Ctrl+Shift+Tab move
+between them. If a value is refused, its tab is marked and brought forward.
 
 ## Every setting
 
@@ -47,3 +48,23 @@ If a value is refused, its tab is marked and brought forward.
 - Values are kept in `~/.conpact/settings.json`, which holds only the
   ones you changed. A value in that file that is out of range is ignored.
 - New values apply from the next turn end.
+
+## Claude Code's own idle compaction
+
+The **Claude Code** tab holds one switch of Claude Code's own, not of conPACT's:
+its idle compaction, which can compact a large idle session without asking,
+shortly before conPACT's toast would
+([how it works](idle-toast.md#claude-codes-own-idle-compaction)). The tab also
+shows Anthropic's switch for your account: on, off, logging only, or not found.
+
+- **Off** writes `"idleCompaction": false` into `~/.claude/settings.json`,
+  keeping every other key.
+- **On** takes that key out again, so Anthropic's switch decides. Writing
+  `true` would not turn it on.
+
+It is written only when you press **Save**, together with conPACT's own
+settings. If Claude Code's settings file cannot be read as JSON, it is left
+alone and nothing is saved. `tools/settings.py` cannot change it.
+
+A project's `.claude/settings.json` can set `idleCompaction` too, and Claude
+Code lets a project's value win over yours.

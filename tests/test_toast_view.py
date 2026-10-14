@@ -84,7 +84,8 @@ def _view(root, controller, now=4300.0):
 def test_constants_and_palettes():
     assert (tv.WIDTH, tv.TICK_MS, tv.FADE_STEPS, tv.ALPHA) == (380, 500, 8, 0.98)
     assert tv.CLOSE_AFTER == {"compacted": 8000, "untracked": 4000, "auto_off": 2500, "startup_on": 2500,
-                              "deferred": 3000, "auto_expiry_set": 3000}
+                              "deferred": 3000, "auto_expiry_set": 3000, "claude_idle_off": 4000,
+                              "conpact_idle_off": 4000}
     assert set(tv.PALETTES) == {"dark", "light"}
     assert set(tv.PALETTES["dark"]) == set(tv.PALETTES["light"])
     for palette in tv.PALETTES.values():
@@ -1106,9 +1107,9 @@ def test_the_demo_must_name_which_toast_to_show(monkeypatch):
         with pytest.raises(SystemExit) as raised:
             tv.main(argv)
         assert raised.value.code == 2
-    for kind in ("ask", "early", "notice", "failed", "remote"):
+    for kind in ("ask", "early", "notice", "failed", "remote", "claude_idle"):
         tv.main(["--demo", kind])          # every sample it offers is one it can show
-    assert shown == ["ask", "early", "notice", "failed", "remote"]
+    assert shown == ["ask", "early", "notice", "failed", "remote", "claude_idle"]
 
 
 @pytest.mark.real_present
@@ -1299,3 +1300,79 @@ def test_an_early_toast_names_the_stage_on_its_auto_button(root):
     assert view.buttons["auto"].cget("text") == "Always when idle"
     assert view.buttons["auto_expiry"].cget("text") == "Always near expiry"
     assert view.status.cget("text") == "Prompt cache expires in 55 min"  # not a ticking 55:00
+
+
+# --- the one-time question about Claude Code's own idle compaction ---------------------
+
+CLAUDE_IDLE = {"kind": "claude_idle", "deadline": None, "span": None}
+
+
+def test_the_question_has_no_bar_but_keeps_its_place_and_waits_for_an_answer(root):
+    controller = Controller(CLAUDE_IDLE)
+    view = tv.ToastView(root, controller, Clock(4300.0), tv.PALETTES["dark"])
+    root.update()
+    px = view.px
+    content = root.winfo_children()[0].winfo_children()[1]
+    header, title, body, status, bar, row, links = content.winfo_children()
+    assert bar is view.bar and _packing(bar) == ("top", "x", 0, 0, (px(10), px(12)))
+    assert bar.cget("bg") == tv.PALETTES["dark"]["bg"]        # drawn in the card's colour: not there
+    assert title.cget("text") == "Claude Code now compacts idle sessions itself"
+    assert [b.cget("text") for b in row.winfo_children()] == ["Use conPACT's", "Use Claude Code's"]
+    assert [b.cget("text") for b in links.winfo_children()] == ["Keep both"]
+    assert view.mute_button is None                           # there is no session to silence
+    view.tick()
+    view.tick()
+    assert controller.polls == 2 and not view.closed and view.fraction == 1.0
+    assert status.cget("text") == toast_text.status(CLAUDE_IDLE, 4300.0)
+
+
+@pytest.mark.parametrize("action, state, text", [
+    ("use_conpact", "claude_idle_off", "Claude Code's idle compaction is off. conPACT's toast still asks."),
+    ("use_claude", "conpact_idle_off", "conPACT's idle toast is off. Claude Code compacts idle sessions itself."),
+])
+def test_an_answer_says_what_it_changed_then_closes(root, monkeypatch, action, state, text):
+    monkeypatch.setattr(tv, "CLOSE_AFTER", {state: 10})
+    view = _view(root, Controller(CLAUDE_IDLE, results={action: {"state": state}}))
+    view.click(action)
+    assert _pump(root, lambda: view.status.cget("text") == text)
+    assert view.row.winfo_manager() == "" and view.links.winfo_manager() == ""
+    assert _pump(root, lambda: view.closed)
+
+
+def test_an_answer_that_could_not_be_applied_stays_up_and_says_why(root):
+    view = _view(root, Controller(CLAUDE_IDLE, results={"use_conpact": {"state": "setting_failed",
+                                                                         "detail": "read-only"}}))
+    view.click("use_conpact")
+    assert _pump(root, lambda: view.status.cget("text") == "Couldn't change the setting: read-only")
+    assert view.status.cget("fg") == tv.PALETTES["dark"]["error"] and not view.closed
+
+
+def test_keeping_both_closes_the_question(root):
+    controller = Controller(CLAUDE_IDLE)
+    view = _view(root, controller)
+    view.click("dismiss")
+    assert _pump(root, lambda: view.closed)
+    assert controller.acts == ["dismiss"]
+
+
+def test_the_demo_question_changes_nothing():
+    demo = tv.DemoController("claude_idle", 5, Clock(100.0))
+    assert demo.model() == CLAUDE_IDLE
+    assert demo.act("use_conpact") == {"state": "claude_idle_off"}
+    assert demo.act("use_claude") == {"state": "conpact_idle_off"}
+    assert demo.act("dismiss") == {"state": "closed"}
+
+
+def test_show_measures_the_card_after_its_text_has_wrapped(root, monkeypatch):
+    """show() itself lays the card out before reading its height: the question
+    about Claude Code's idle compaction wraps to several lines, and a height read
+    first is the unwrapped one, which cuts the buttons off the bottom."""
+    _off_screen_desktop(monkeypatch)
+    view = tv.ToastView(root, Controller(CLAUDE_IDLE), Clock(4300.0))
+    placed = []
+    monkeypatch.setattr(root, "geometry", placed.append)
+    _held_timers(root, monkeypatch)
+    view.show(0)
+    root.update_idletasks()
+    height = root.winfo_reqheight()
+    assert placed == [f"380x{height}+{RIGHT - 380 - 16}+{BOTTOM - 16 - height}"]

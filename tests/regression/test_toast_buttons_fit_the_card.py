@@ -71,3 +71,18 @@ def test_each_row_asks_for_no_more_than_the_card_can_give_it(root, stage):
     rows = [view.row] if view.links is None else [view.row, view.links]
     too_wide = [(row.winfo_reqwidth(), inner) for row in rows if row.winfo_reqwidth() > inner]
     assert too_wide == [], f"a row wants more than the card has on stage {stage}: {too_wide}"
+
+
+def test_the_question_about_claude_codes_idle_compaction_fits_the_card(root):
+    """Two long labels share its row; the third choice is a link underneath (CU-20261014-118)."""
+    model = {"kind": "claude_idle", "deadline": None, "span": None}
+    view = tv.ToastView(root, _Controller(model), lambda: 4300.0, tv.PALETTES["dark"])
+    # As show() does: its longer text has to be wrapped before the height is read,
+    # or the window is cut short and the buttons get no room at all.
+    root.update_idletasks()
+    root.geometry(f"{view.px(tv.WIDTH)}x{root.winfo_reqheight()}+-4000+-4000")
+    root.update()
+    clipped = [(button.cget("text"), button.winfo_reqwidth() - button.winfo_width())
+               for row in (view.row, view.links) for button in row.winfo_children()
+               if button.winfo_width() < button.winfo_reqwidth()]
+    assert clipped == []

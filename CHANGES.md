@@ -3,6 +3,108 @@
 Change Log Entries. Newest first.
 
 ```yaml
+id: CU-20261015-122
+type: release
+title: "conPACT 1.5.1: the doctor reports a Codex config.toml whose mcp_servers is not a table, rather than stopping on it"
+description: >
+  The user asked on 2026-10-15 for this work to be published ("push to remote
+  and tag new release"). The package and the mod read 1.5.0, although the
+  doctor's crash on a Codex config.toml whose mcp_servers is not a table is
+  fixed (CU-20261014-121) and its tests now read what every check reports
+  (CU-20261014-120). The version is 1.5.1 in src/conpact/__init__.py and the
+  mod's plugin.json: a fix, with no new setting or behaviour. The README's
+  Windows test line reads the last full run.
+impact: none
+affected_modules: [src/conpact/__init__.py, src/mod/.claude-plugin/plugin.json, README.md]
+related_tests: [tests/regression/test_the_mod_compacts_in_process.py, tests/test_mcp_server.py, tests/regression/test_the_published_tree_is_clean.py, tests/regression/test_the_docs_stand_on_their_own.py]
+commit_ref: "feature/release-1.5.1"
+author: "Brandon Stonebridge"
+timestamp: "2026-10-14T23:40:00+00:00"
+verification: >
+  The version tests (the mod installs at the package's version, the MCP
+  server reports it), the published-tree and docs checks pass. The release is
+  built from the publish commit, scanned, and tested and installed from its
+  own export before it is uploaded.
+```
+
+```yaml
+id: CU-20261014-121
+type: fix
+title: "The doctor reports a Codex config.toml whose mcp_servers is not a table, rather than stopping on it"
+description: >
+  The tests that raised the doctor's mutation score (CU-20261014-120) found,
+  on 2026-10-14, that a Codex config.toml holding `mcp_servers = "python"`, or
+  any mcp_servers that is not a table, stopped `python -m conpact.doctor` with
+  a traceback. _mcp_config called .get("conpact") on whatever mcp_servers
+  held; on a string, an array, a number or a boolean that raised an
+  AttributeError, which its `except (OSError, ValueError, TypeError)` did not
+  catch, so no check after it was printed. It now reads conpact's entry only
+  when mcp_servers is a table, and otherwise reports what it reports for any
+  other missing entry: "[FAIL] Codex MCP: conpact is missing from
+  config.toml". The except clause is unchanged: the guard says which shape is
+  read, rather than catching more. `data.get("mcp_servers")` no longer
+  defaults to an empty table: a missing mcp_servers fails the same guard.
+impact: low
+affected_modules: [src/conpact/doctor.py, docs/verification.md]
+related_tests: [tests/test_doctor.py, tests/regression/test_a_codex_config_without_a_server_table_is_reported.py]
+commit_ref: "feature/doctor-mcp-servers-guard"
+author: "Brandon Stonebridge"
+timestamp: "2026-10-14T22:30:00+00:00"
+verification: >
+  Written first and seen failing with the AttributeError: three new cases of
+  test_codex_mcp_reads_conpacts_entry_in_codexs_config (a string, an array
+  and a number for mcp_servers) and the regression test's five cases. After
+  the fix: tests/test_doctor.py and the regression test, 75 passed; `python -m
+  conpact.doctor` with CODEX_HOME holding `mcp_servers = "python"` prints the
+  FAIL line and every check after it, and exits 1. The full suite: 3,212
+  passed, 4 skipped, 10 deselected (the on-screen tests). tools/mutate.py on
+  doctor.py: 185 of 185 killed (100.0%), none survived, uncovered or timed
+  out. It makes no mutant of the guard itself (it has no operator for a
+  conditional expression), so that was checked by hand: negated, 11 of the
+  doctor's tests fail; removed, it is the crash above. The module-structure
+  check scores 100.0.
+```
+
+```yaml
+id: CU-20261014-120
+type: test
+title: "The doctor's tests read what every check reports, and its mutation score rises from 21.6% to 100%"
+description: >
+  The maintainer asked on 2026-10-14 for the mutation score of
+  src/conpact/doctor.py, 21.6% when the pass for Claude Code's own idle
+  compaction (CU-20261014-118) measured it for the first time, to reach at
+  least the 60% floor docs/verification.md holds every module to. Of its 185
+  mutants, 40 were killed, 46 survived and 99 were on lines no test ran:
+  _codex_login, _mcp_config, _sidecar, _codex_cli, _codex_state and
+  _claude_login had almost no test that read what they report; checks() had
+  none for its Python version check or for leaving out any check but the
+  last; lines(), main() and the __main__ guard had none for their exact
+  output. tests/test_doctor.py now asserts the level, name and detail of
+  every branch of every check. The environment, the runner and Codex's folder
+  are injected: a CODEX_HOME holding a config.toml, a hooks.json and a
+  stand-in state database. Only the sidecar's status, the app-server's
+  readiness, the macOS Keychain and sys.platform are stood in for. The new
+  tests also cover the order checks() lists the checks in and what each is
+  handed, main()'s exit code and its exact printed lines, a Check being
+  immutable, and `python -m conpact.doctor` run through
+  runpy.run_module(..., run_name="__main__") (D-20260920-025). No runtime
+  source changed.
+impact: none
+affected_modules: [docs/verification.md]
+related_tests: [tests/test_doctor.py]
+commit_ref: "feature/doctor-mutation-score"
+author: "Brandon Stonebridge"
+timestamp: "2026-10-14T19:30:00+00:00"
+verification: >
+  tests/test_doctor.py: 67 passed. tools/mutate.py on doctor.py:
+  185 of 185 killed (100.0%), none survived, uncovered or timed out. One was
+  killed by the recheck against the module's own tests: the Check
+  dataclass's frozen=True, a line that runs at import. The full suite:
+  3,204 passed, 4 skipped, 10 deselected (the on-screen tests). The
+  module-structure check scores 100.0. No regression test: impact is none.
+```
+
+```yaml
 id: CU-20261014-119
 type: release
 title: "conPACT 1.5.0: conPACT reads Claude Code's own idle compaction, asks once which one to keep, and can switch it off"
@@ -30,6 +132,15 @@ verification: >
   server reports it), the published-tree and docs checks pass. The release is
   built from the publish commit, scanned, and tested and installed from its
   own export before it is uploaded.
+  Published 2026-10-14 as c29dab5 on main, appended to 1.4.0, with the tag
+  v1.5.0 and its release, built from the development commit 0ecd0b1. The
+  strict scan of the tree, the commit, the tag, the notes and the unpacked
+  wheel and source archive found nothing; run on the development commit, it
+  found 55 to fix and 33 to review, so it can fail. From its export, outside
+  any checkout, 3,144 tests passed (7 skipped: no git checkout, or
+  POSIX-only), the mod's 128 passed with strict validation, and the wheel
+  installed in a fresh environment answered --help. The release's files were
+  downloaded back and matched their sums before the draft was published.
 ```
 
 ```yaml

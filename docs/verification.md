@@ -245,13 +245,20 @@ pass supersedes an earlier one for the modules it covers.
 | The check after every compaction, 2026-10-09, re-measured after tests for the survivors: **81.9%**, 564 / 689 (69.5% before; the new tests found two real gaps, both fixed). Most survivors left in `provenance` are its command line's help text | provenance_match 85.2, provenance_transcript 83.2, provenance_items 82.8, provenance 78.9 |
 | The mod with the provenance instruction on every compaction, 2026-10-09: **96.8%**, no survivor on a changed line | run.js 100, rules.js 99.2 |
 | Claude Code's own idle compaction, 2026-10-14: the three new modules **99.6%**, 278 / 279 (the one survivor, an argument `main` never read, was then removed); in the modules it changed, no survivor on a changed line but one in `toast_view`, killed afterwards by a test for it (checked by deleting the call) | claude_idle_compaction 100, claude_settings 100, claude_idle_offer 99.4; remote_startup 100, toast_text 98.3, toast_view 98.1, settings_window 97.8, closure_hook 95.7, doctor 21.6 |
+| The doctor, 2026-10-14, re-measured after tests that read what each check reports: **100%**, 185 / 185 (21.6% before, 40 / 185, with 99 uncovered); one kill came from the recheck against its own tests ([below](#coverage-does-not-decide-a-survivor)): the `Check` dataclass's `frozen=True`, a line that runs at import | doctor 100 |
 | The idle toast through the mod, 2026-10-02: the mod **97.2%**, 478 / 492 (96.5% on the first pass, 471 / 488; one survivor of the second pass was killed afterwards by a test for it, checked by hand); the watcher's side, re-measured after tests for the survivors, **98.4%**, 671 / 682 (96.6% before, 659 / 682) | handoff.js 100, run.js 100, tools.js 100, rules.js 99.2, requests.js 98.4, files.js 92.0, register.js 83.6; idle_watch 98.5, mod_handoff 98.1 |
 
-No module measured is below 60%, the floor this project holds every module to,
-except `doctor`, measured for the first time in the pass for Claude Code's own
-idle compaction. Its new check has no survivor; its older checks, most of them
-for ChatGPT Desktop, have few tests that read what they report, and 99 of its
-185 mutants are on lines no test runs.
+No module measured is below 60%, the floor this project holds every module to.
+`doctor` was the last: measured for the first time in the pass for Claude Code's
+own idle compaction, it scored 21.6%, because its older checks, most of them for
+ChatGPT Desktop, had few tests that read what they report, and 99 of its 185
+mutants were on lines no test ran. Its tests now read the level, name and
+detail of every branch of every check, with the environment, the runner and
+Codex's folder injected, so no real Codex install is needed. They also run
+`python -m conpact.doctor` through its `__main__` guard. Measured again, they
+kill all 185. They also found a crash: a Codex config.toml whose `mcp_servers`
+is not a table stopped the report with a traceback. It is now reported as the
+Codex MCP check failing, and the doctor still kills all 185.
 The sidecar, the turn-end hook and Codex Remote Control were built after the
 last pass and have no mutation score yet; of the Codex MCP binding, only
 `codex_caller` has one. The five mutants it lets through are equivalent. Four

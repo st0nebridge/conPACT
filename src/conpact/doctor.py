@@ -54,7 +54,8 @@ def _mcp_config(environ=None) -> Check:
     path = codex_home.home(environ) / "config.toml"
     try:
         data = tomllib.loads(path.read_text(encoding="utf-8"))
-        server = data.get("mcp_servers", {}).get("conpact")
+        servers = data.get("mcp_servers")
+        server = servers.get("conpact") if isinstance(servers, dict) else None
     except (OSError, ValueError, TypeError):
         server = None
     ok = isinstance(server, dict) and bool(server.get("command"))

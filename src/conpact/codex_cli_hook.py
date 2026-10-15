@@ -14,7 +14,7 @@
 @input      the Stop hook's JSON on stdin; the recorded app-server's pid
 @output     at most one compaction, or an armed idle watch; nothing on stdout
 @dependencies conpact.codex_arming, conpact.codex_host, conpact.codex_inject, conpact.compaction,
-              conpact.detach, conpact.home;
+              conpact.detach, conpact.home, conpact.win_process;
               stdlib: json, os, pathlib, subprocess, sys, time
 """
 from __future__ import annotations
@@ -26,27 +26,26 @@ import subprocess
 import sys
 import time
 
-from . import codex_arming, codex_host, codex_inject, compaction, detach, home
+from . import codex_arming, codex_host, codex_inject, compaction, detach, home, win_process
 
 STOP = "Stop"
 MAX_ANCESTORS = 3
 _READ_RECORD = object()
 
 
-def _parent_pid(pid: int) -> int | None:
-    """The parent of ``pid`` without a third-party process library."""
+def _parent_pid(pid: int, snapshot=win_process.snapshot) -> int | None:
+    """The parent of ``pid`` without a third-party process library: read
+    in-process on Windows, so a busy machine cannot run it out of time, and
+    from ps elsewhere."""
     try:
         if sys.platform == "win32":
-            command = ("(Get-CimInstance Win32_Process -Filter \"ProcessId = "
-                       f"{int(pid)}\").ParentProcessId")
-            done = subprocess.run(
-                ["powershell", "-NoProfile", "-NonInteractive", "-Command", command],
-                capture_output=True, text=True, timeout=3)
+            row = snapshot(int(pid))
+            parent = row.get("ParentProcessId") if row else None
         else:
             done = subprocess.run(["ps", "-p", str(int(pid)), "-o", "ppid="],
                                   capture_output=True, text=True, timeout=3)
-        parent = int((done.stdout or "").strip())
-        return parent if parent > 0 else None
+            parent = int((done.stdout or "").strip())
+        return parent if isinstance(parent, int) and parent > 0 else None
     except (OSError, ValueError, subprocess.SubprocessError):
         return None
 

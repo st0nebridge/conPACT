@@ -3,6 +3,156 @@
 Change Log Entries. Newest first.
 
 ```yaml
+id: CU-20261015-125
+type: release
+title: "conPACT 1.5.2: Windows process reads are made in-process, so a busy machine no longer binds an MCP server to its launcher or turns the Codex CLI Stop hook away"
+description: >
+  The user asked on 2026-10-15 for this work to be published ("commit and
+  push, tag new release"). The package and the mod read 1.5.1, although the
+  Windows reads of a process's parent and command line that a busy machine
+  could run out of time are now made in-process: the MCP server's owner
+  (CU-20261015-123) and the Codex CLI Stop hook's ancestry and a Codex MCP
+  server's parent command line (CU-20261015-124). The version is 1.5.2 in
+  src/conpact/__init__.py and the mod's plugin.json: a fix, with no new
+  setting or behaviour. The README's Windows test line reads the last full
+  run. The two new regression tests are named plainly in their docstrings,
+  and D-20261015-093 and -094 say their approach was chosen in carrying out
+  the task, not asked for.
+impact: none
+affected_modules: [src/conpact/__init__.py, src/mod/.claude-plugin/plugin.json, README.md, DECISIONS.md, tests/regression/test_a_busy_machine_still_binds_the_mcp_owner.py, tests/regression/test_codex_process_reads_need_no_process_to_start.py]
+related_tests: [tests/regression/test_the_mod_compacts_in_process.py, tests/test_mcp_server.py, tests/regression/test_the_published_tree_is_clean.py, tests/regression/test_the_docs_stand_on_their_own.py]
+commit_ref: "feature/release-1.5.2"
+author: "Brandon Stonebridge"
+timestamp: "2026-10-15T03:34:19+00:00"
+verification: >
+  The version tests (the mod installs at the package's version, the MCP
+  server reports it), the published-tree and docs checks pass. Full suite in
+  the checkout: 3,264 passed, 4 skipped, 10 deselected. The release is built from the publish commit, scanned,
+  and tested and installed from its own export before it is uploaded.
+```
+
+```yaml
+id: CU-20261015-124
+type: fix
+title: "The Codex CLI Stop hook and a Codex MCP server read their Windows parents in-process, so a busy machine no longer turns them away"
+description: >
+  Two more reads of one Windows process started PowerShell for a
+  Get-CimInstance Win32_Process query under a short limit and gave up when it
+  ran out: codex_cli_hook._parent_pid (3 s), which hosted_by_conpact walks to
+  decide whether the Stop hook is below conPACT's recorded app-server, and
+  codex_caller.process_command (5 s), which reads a Codex MCP server's parent
+  command line to tell ChatGPT Desktop from the CLI. Measured on 2026-10-15
+  on Windows 11: idle, both took 0.7-0.9 s; with 32 busy processes the hook's
+  read took 3.3-4.1 s and came back empty 4 times in 4, so hosted_by_conpact
+  answered False and the Stop hook did nothing, and the command-line read
+  took 3.8-5.4 s and came back empty once in 4, so surface() said unknown and
+  the server took the fail-closed desktop path. Both now read through
+  conpact.win_process on Windows (CU-20261015-123): the parent pid and the
+  command line come from one handle, in about 0.1 ms, with nothing started.
+  Every answer and fail-closed result is unchanged: no row, an unreadable or
+  non-positive parent pid is no ancestor; no row or an empty command line is
+  no command; a pid that is not a number is never looked up. macOS and Linux
+  still ask ps. The reader is an argument defaulting to win_process.snapshot,
+  as the runner is (D-20260920-023, D-20261015-094).
+impact: medium
+affected_modules: [src/conpact/codex_cli_hook.py, src/conpact/codex_caller.py, docs/architecture.md, DECISIONS.md]
+related_tests: [tests/test_codex_cli_hook.py, tests/test_codex_caller.py, tests/regression/test_codex_process_reads_need_no_process_to_start.py]
+commit_ref: "feature/codex-ancestry-in-process"
+author: "Brandon Stonebridge"
+timestamp: "2026-10-15T03:04:36+00:00"
+verification: >
+  Written first and seen failing: the regression test, with every process
+  start failing as a timeout, read no parent (assert None == 27232) and no
+  command line for a child started as Codex CLI, and the platform tests for
+  both functions failed before the code changed. Measured with a probe on
+  2026-10-15, 4 reads each idle and with 32 busy processes: before, the
+  numbers in the description; after, both reads 0.01-0.19 s including the
+  probe's own os.getppid() (which walks the process list; the snapshot alone
+  is 0.08-0.13 ms), and both answered correctly 8 times in 8, so
+  hosted_by_conpact said True and surface() named the CLI under load. Full
+  suite (python -m pytest -m "not real_ui"): 3,261 passed, 4 skipped, 10
+  deselected. tools/mutate.py on codex_caller.py and codex_cli_hook.py: 306
+  of 377 killed (81.2%); codex_caller 222 of 268 (82.8%), codex_cli_hook 84 of
+  109 (77.1%). In the lines this change touched one mutant survived, the
+  parent-pid floor `> 0 -> > 1`; tests for a parent pid of 1 (init on POSIX)
+  were added and kill it, checked by applying it by hand (3 failed) after the
+  run. The other survivors are in code this change did not touch. The three
+  test files pass after that addition (112 passed). Structure fitness
+  100/100. Not verified: a live Codex CLI Stop hook or Codex MCP server on a
+  loaded machine; the Linux and macOS suites (their ps path is unchanged).
+```
+
+```yaml
+id: CU-20261015-123
+type: fix
+title: "A Windows MCP server reads its ancestry in-process, so a busy machine no longer binds it to its venv launcher"
+description: >
+  runtime_parent._read found the MCP server's owner by starting PowerShell for
+  up to four Get-CimInstance Win32_Process queries under a 5-second limit, and
+  a read that ran out of time returned nothing, so owner() kept the direct
+  parent. Measured on 2026-10-15 on Windows 11: 2.6-5.3 s per read idle (a
+  cold start over the limit) and 5.0-6.5 s with 32 busy processes, every slow
+  read empty. A server started through a venv redirector then bound the
+  redirector instead of the process that started it:
+  test_real_venv_redirector_resolves_the_process_that_started_it failed 1 run
+  in 4 under the suite's load, and 3 in 3 with 32 busy processes. Every
+  fallback coincided with a read over the limit; every read under it bound
+  correctly. The ancestry is now read in-process by the new conpact.win_process:
+  one handle per process (PROCESS_QUERY_LIMITED_INFORMATION | SYNCHRONIZE)
+  gives its parent pid and command line (NtQueryInformationProcess), image
+  path (QueryFullProcessImageNameW) and creation time (GetProcessTimes, as
+  fixed-width UTC ISO text, so the creation-order check still compares text),
+  and a process that has exited gives no row, as Win32_Process listed none.
+  Nothing is started, so no window can be shown and there is no time limit to
+  run out. The image path is now the kernel's, which the process cannot
+  rewrite; Win32_Process reported the path a process was started by
+  (`Git\bin\..\usr\bin\bash.exe` where the kernel says `Git\usr\bin\bash.exe`).
+  So that a venv started through a junction, a subst drive or a `..` path
+  still unwraps, as it did with the old reader, resolve() counts two paths as
+  one executable when they are equal or name the same file on disk (_same).
+  The other rules of D-20261003-070 are unchanged: at most two of this
+  installation's launchers, matching command tails, observed parent edges with
+  creation-time order including the final owner, and the direct parent on any
+  missing evidence (D-20261015-093). The real-venv test now also requires that
+  a redirector stood between the two processes, and a new test starts the venv
+  through a junction.
+impact: medium
+affected_modules: [src/conpact/runtime_parent.py, src/conpact/win_process.py, docs/architecture.md, DECISIONS.md]
+related_tests: [tests/test_runtime_parent.py, tests/test_win_process.py, tests/regression/test_a_busy_machine_still_binds_the_mcp_owner.py]
+commit_ref: "feature/in-process-ancestry-read"
+author: "Brandon Stonebridge"
+timestamp: "2026-10-15T02:01:32+00:00"
+verification: >
+  Written first and seen failing: the regression test's venv child, with
+  every process start failing as a timeout, bound the redirector (assert
+  30676 == 30836), and the reader, walk, same-file and junction tests failed
+  before their code existed. Measured with a probe on 2026-10-15: the
+  PowerShell read took 2.78-5.28 s idle and 5.03-6.46 s with 32 busy
+  processes, every read over 5 s empty; the in-process read took 1.0-2.6 ms
+  idle and 1.2-1.3 ms under the same load, four rows each time. HEAD's
+  real-venv test under 32 busy processes failed 3 runs of 3; the new
+  test_runtime_parent.py, test_win_process.py and regression test passed in
+  each of 4 runs under the same load (52 passed each). A venv started through
+  a junction bound correctly with the old reader when it finished in time,
+  fell back with the kernel path compared as text, and binds with _same. The
+  rows equal Win32_Process's ParentProcessId and CommandLine, its CreationDate
+  to the microsecond (CIM's resolution), and its ExecutablePath except for a
+  process started by a non-canonical path. Full suite (python -m pytest -m
+  "not real_ui"): 3,247 passed, 4 skipped, 10 deselected. tools/mutate.py on
+  runtime_parent and win_process: 114 of 128 killed (89.1%); runtime_parent
+  81 of 87 (93.1%), win_process 33 of 41 (80.5%). The first run (80.6%) found
+  six rules of resolve and owner no test held (an unquoted launcher command,
+  a third wrapper, rows that are not records, an entry wrapper running another
+  script with the same arguments, the console entry's path, pid 1); they are
+  tested now. The 14 survivors are equivalent: fallback strings for a command
+  line that does not parse, which never reach a comparison; seen.add, which no
+  cycle within two wrappers reaches; six unused structure field names; two
+  buffers one byte larger. Structure fitness 100/100. Not verified: a live MCP
+  server started by Claude Code through a venv on a loaded machine; the Linux
+  and macOS suites (owner() returns the direct parent there before any read).
+```
+
+```yaml
 id: CU-20261015-122
 type: release
 title: "conPACT 1.5.1: the doctor reports a Codex config.toml whose mcp_servers is not a table, rather than stopping on it"
@@ -25,6 +175,23 @@ verification: >
   server reports it), the published-tree and docs checks pass. The release is
   built from the publish commit, scanned, and tested and installed from its
   own export before it is uploaded.
+  Published 2026-10-15 as 15fbaa7 on main, appended to 1.5.0's c29dab5, with
+  the tag v1.5.1 and its release, built from the development commit 52a9e70.
+  The strict scan first found two uses of a private workflow's name for a
+  regression test in CU-20261014-120 and -121; they were reworded (52a9e70),
+  and the scan of the tree, the commit, the tag, the notes and the unpacked
+  wheel and source archive then found nothing. From its export, outside any
+  checkout, 3,209 tests passed (7 skipped: no git checkout, or POSIX-only),
+  the mod's 128 passed with strict validation, and the wheel installed in a
+  fresh environment answered --help and, run against a config.toml whose
+  mcp_servers is a string, reported the Codex MCP check failed and printed
+  every check after it. Rerunning a subset from the export,
+  test_real_venv_redirector_resolves_the_process_that_started_it failed once
+  in four: runtime_parent's PowerShell read of the process ancestry took 2.6
+  to 4.3 s idle against its 5 s limit, and past it the owner falls back to the
+  direct parent. That test and module are unchanged since before 1.5.0; a
+  separate task was offered for them. The release's files were downloaded
+  back and matched their sums before the draft was published.
 ```
 
 ```yaml

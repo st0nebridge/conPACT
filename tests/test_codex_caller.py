@@ -5,11 +5,12 @@
              file proves the same rules through mcp_tools; these tests pin each
              function's own answer, every refusal's words, and the two bounds
              (the CLI's settle window and the tool-call marker scan). Nothing
-             here starts PowerShell or ps, or reads the real clock: the runner,
-             the clock, the thread store and the rollouts are all stood in.
-@input      conpact.codex_caller, with a stand-in context, a recording runner, a
-            scripted clock and hand-written rollouts
-@output     assertions on the command process_command asks to run and what it
+             here runs ps, reads a real process or the real clock: the runner,
+             the process snapshot, the clock, the thread store and the rollouts
+             are all stood in.
+@input      conpact.codex_caller, with a stand-in context, a recording runner and
+            snapshot, a scripted clock and hand-written rollouts
+@output     assertions on what process_command asks to read or run and what it
             makes of the answer, the surface each parent names, and each
             binding and refusal
 @dependencies conpact.codex_caller, conpact.codex_active, conpact.codex_host,
@@ -59,53 +60,73 @@ def _on(monkeypatch, platform):
     monkeypatch.setattr(codex_caller, "sys", types.SimpleNamespace(platform=platform))
 
 
+class _Snapshot:
+    """Stands in for win_process.snapshot: records the pid it was asked for and answers."""
+
+    def __init__(self, command=None, row=True, raises=None):
+        self.command, self.row, self.raises, self.asked = command, row, raises, []
+
+    def __call__(self, pid):
+        self.asked.append(pid)
+        if self.raises is not None:
+            raise self.raises
+        return dict(ProcessId=pid, CommandLine=self.command) if self.row else None
+
+
 class TestProcessCommand:
     ASKED = {"capture_output": True, "text": True, "timeout": 5}
 
-    def test_windows_asks_powershell_for_the_parent_s_command_line(self, monkeypatch):
+    def test_windows_reads_the_parent_s_command_line_in_process(self, monkeypatch):
         _on(monkeypatch, "win32")
-        runner = _Runner(stdout="codex.exe app-server --analytics-default-enabled\r\n")
-        assert codex_caller.process_command(4242, runner) == \
+        runner, snapshot = _Runner(), _Snapshot("codex.exe app-server --analytics-default-enabled\r\n")
+        assert codex_caller.process_command(4242, runner, snapshot) == \
             "codex.exe app-server --analytics-default-enabled"
-        assert runner.calls == [(
-            ["powershell", "-NoProfile", "-NonInteractive", "-Command",
-             '(Get-CimInstance Win32_Process -Filter "ProcessId = 4242").CommandLine'],
-            self.ASKED)]
+        assert snapshot.asked == [4242] and runner.calls == []
 
     @pytest.mark.parametrize("platform", ["linux", "darwin"])
     def test_elsewhere_it_asks_ps(self, monkeypatch, platform):
         _on(monkeypatch, platform)
-        runner = _Runner(stdout="/usr/local/bin/codex exec --json\n")
-        assert codex_caller.process_command(4242, runner) == "/usr/local/bin/codex exec --json"
+        runner, snapshot = _Runner(stdout="/usr/local/bin/codex exec --json\n"), _Snapshot("codex")
+        assert codex_caller.process_command(4242, runner, snapshot) == "/usr/local/bin/codex exec --json"
         assert runner.calls == [(["ps", "-p", "4242", "-o", "args="], self.ASKED)]
+        assert snapshot.asked == []
 
     @pytest.mark.parametrize("platform", ["win32", "linux"])
-    def test_a_pid_that_is_not_a_number_never_reaches_the_command(self, monkeypatch, platform):
-        """The pid is written into a PowerShell script, so it is made an integer
-        first; anything else is no command, and nothing is run."""
+    def test_a_pid_that_is_not_a_number_never_reaches_the_lookup(self, monkeypatch, platform):
+        """The pid is made an integer first; anything else is no command, and
+        nothing is read or run."""
         _on(monkeypatch, platform)
-        runner = _Runner(stdout="codex")
-        assert codex_caller.process_command('1").CommandLine; Remove-Item x #', runner) is None
-        assert runner.calls == []
+        runner, snapshot = _Runner(stdout="codex"), _Snapshot("codex")
+        assert codex_caller.process_command('1").CommandLine; Remove-Item x #', runner, snapshot) is None
+        assert runner.calls == [] and snapshot.asked == []
 
-    @pytest.mark.parametrize("stdout", ["", "  \r\n", None])
-    def test_an_empty_answer_is_no_command(self, monkeypatch, stdout):
+    @pytest.mark.parametrize("snapshot", [
+        _Snapshot(""), _Snapshot("  \r\n"), _Snapshot(None), _Snapshot(row=False),
+        _Snapshot(raises=OSError("exception: access violation")),
+    ])
+    def test_a_windows_parent_without_a_command_line_is_no_command(self, monkeypatch, snapshot):
         _on(monkeypatch, "win32")
+        assert codex_caller.process_command(4242, _Runner(stdout="codex"), snapshot) is None
+
+    @pytest.mark.parametrize("stdout", ["", "  \n", None])
+    def test_an_empty_answer_is_no_command(self, monkeypatch, stdout):
+        _on(monkeypatch, "linux")
         assert codex_caller.process_command(4242, _Runner(stdout=stdout)) is None
 
     @pytest.mark.parametrize("failure", [
-        OSError("powershell is not on PATH"),
-        subprocess.TimeoutExpired("powershell", 5),
+        OSError("ps is not on PATH"),
+        subprocess.TimeoutExpired("ps", 5),
         subprocess.CalledProcessError(1, "ps"),
     ])
     def test_a_lookup_that_fails_is_no_command(self, monkeypatch, failure):
-        _on(monkeypatch, "win32")
+        _on(monkeypatch, "linux")
         assert codex_caller.process_command(4242, _Runner(raises=failure)) is None
 
-    def test_the_real_runner_is_subprocess_run(self):
-        """Standing it in changes nothing the server does when nothing is given."""
-        default = inspect.signature(codex_caller.process_command).parameters["runner"].default
-        assert default is subprocess.run
+    def test_the_real_readers_are_subprocess_run_and_win_process(self):
+        """Standing them in changes nothing the server does when nothing is given."""
+        defaults = inspect.signature(codex_caller.process_command).parameters
+        assert defaults["runner"].default is subprocess.run
+        assert defaults["snapshot"].default is codex_caller.win_process.snapshot
 
 
 class TestSurface:

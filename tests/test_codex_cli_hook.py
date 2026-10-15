@@ -74,23 +74,56 @@ def test_after_stop_wait_returns_when_idle_is_recorded(monkeypatch):
     assert pauses == []
 
 
-@pytest.mark.parametrize("platform", ["win32", "linux"])
-@pytest.mark.parametrize("output,expected", [("41\n", 41), ("0", None), ("unknown", None)])
-def test_process_ancestry_queries_are_bounded_and_fail_closed(monkeypatch, platform, output, expected):
+@pytest.mark.parametrize("platform", ["linux", "darwin"])
+@pytest.mark.parametrize("output,expected", [("41\n", 41), ("1", 1), ("0", None), ("unknown", None)])
+def test_elsewhere_ancestry_is_asked_of_ps_bounded_and_failing_closed(monkeypatch, platform, output, expected):
     calls = []
     monkeypatch.setattr(codex_cli_hook.sys, "platform", platform)
     monkeypatch.setattr(codex_cli_hook.subprocess, "run", lambda argv, **kw:
                         calls.append((argv, kw)) or SimpleNamespace(stdout=output))
-    assert codex_cli_hook._parent_pid(52) == expected
-    assert calls[0][1]["timeout"] == 3
-    assert calls[0][0][0] == ("powershell" if platform == "win32" else "ps")
+    assert codex_cli_hook._parent_pid(52, snapshot=lambda pid: pytest.fail("Windows only")) == expected
+    assert calls == [(["ps", "-p", "52", "-o", "ppid="],
+                      {"capture_output": True, "text": True, "timeout": 3})]
+
+
+@pytest.mark.parametrize("row,expected", [
+    ({"ProcessId": 52, "ParentProcessId": 41}, 41),
+    ({"ProcessId": 52, "ParentProcessId": 1}, 1),
+    ({"ProcessId": 52, "ParentProcessId": 0}, None),
+    ({"ProcessId": 52, "ParentProcessId": None}, None),
+    (None, None),
+])
+def test_windows_ancestry_is_read_in_process_and_starts_nothing(monkeypatch, row, expected):
+    asked, started = [], []
+    monkeypatch.setattr(codex_cli_hook.sys, "platform", "win32")
+    monkeypatch.setattr(codex_cli_hook.subprocess, "run", lambda *a, **k: started.append(a))
+    assert codex_cli_hook._parent_pid(52, snapshot=lambda pid: asked.append(pid) or row) == expected
+    assert asked == [52] and started == []
+
+
+def test_windows_ancestry_reads_through_win_process_by_default():
+    import inspect
+    default = inspect.signature(codex_cli_hook._parent_pid).parameters["snapshot"].default
+    assert default is codex_cli_hook.win_process.snapshot
+
+
+@pytest.mark.parametrize("platform", ["win32", "linux"])
+def test_a_pid_that_is_not_a_number_is_never_looked_up(monkeypatch, platform):
+    looked = []
+    monkeypatch.setattr(codex_cli_hook.sys, "platform", platform)
+    monkeypatch.setattr(codex_cli_hook.subprocess, "run", lambda *a, **k: looked.append(a))
+    assert codex_cli_hook._parent_pid("52; rm x", snapshot=looked.append) is None
+    assert looked == []
 
 
 def test_missing_ancestry_and_a_chain_without_the_owner_are_inert(monkeypatch):
     def failed(*a, **k):
         raise OSError("process query failed")
+    monkeypatch.setattr(codex_cli_hook.sys, "platform", "linux")
     monkeypatch.setattr(codex_cli_hook.subprocess, "run", failed)
     assert codex_cli_hook._parent_pid(52) is None
+    monkeypatch.setattr(codex_cli_hook.sys, "platform", "win32")
+    assert codex_cli_hook._parent_pid(52, snapshot=failed) is None
     assert not codex_cli_hook.hosted_by_conpact(ppid=52, record=None)
     assert not codex_cli_hook.hosted_by_conpact(52, lambda pid: pid + 1, record={"pid": 41})
 

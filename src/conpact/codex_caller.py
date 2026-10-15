@@ -14,11 +14,12 @@
              Contributed by Lance Sandino inside mcp_tools, and moved here
              unchanged so that module keeps to the tools themselves.
 @input      a context carrying the server's environ, ppid and parent_command
-            (mcp_tools.Context); a parent pid, and what runs PowerShell or ps
-            (subprocess.run unless a test stands in for it)
+            (mcp_tools.Context); a parent pid, and what reads it: win_process
+            on Windows, ps run by subprocess.run elsewhere, unless a test stands
+            in for them
 @output     a surface (CODEX_CLI, CODEX_DESKTOP, CODEX_HOST or CODEX_UNKNOWN);
             a (thread id or None, why) binding
-@dependencies conpact.codex_active, conpact.compaction, and lazily
+@dependencies conpact.codex_active, conpact.compaction, conpact.win_process, and lazily
               conpact.codex_host, conpact.codex_meter, conpact.codex_threads,
               conpact.context_meter; stdlib: pathlib, re, subprocess, sys, time
 """
@@ -30,7 +31,7 @@ import subprocess
 import sys
 import time
 
-from . import codex_active, compaction
+from . import codex_active, compaction, win_process
 
 MAX_CALL_MARKER_RECORDS = 200
 CODEX_CALL_SETTLE_SECONDS = 0.5
@@ -40,28 +41,27 @@ CODEX_CLI, CODEX_DESKTOP, CODEX_HOST, CODEX_UNKNOWN = (
     "cli", "desktop", "conpact_host", "unknown")
 
 
-def process_command(pid: int, runner=subprocess.run) -> str | None:
+def process_command(pid: int, runner=subprocess.run, snapshot=win_process.snapshot) -> str | None:
     """One process command line, for distinguishing Codex CLI from app-server.
 
     Codex does not pass its surface to an MCP child. The direct parent does:
     ChatGPT Desktop runs ``codex ... app-server`` and the CLI runs ``codex`` or
     ``codex exec``. Failure to inspect it stays unknown and takes the existing,
-    fail-closed desktop path. ``runner`` is what starts PowerShell or ps, so a
-    test reads what it would be asked to run (D-20260920-023).
+    fail-closed desktop path. On Windows it is read in-process (``snapshot``),
+    so a busy machine cannot run it out of time; elsewhere ``runner`` starts
+    ps. Both are arguments, so a test reads what would be asked
+    (D-20260920-023).
     """
     try:
         if sys.platform == "win32":
-            script = ("(Get-CimInstance Win32_Process -Filter \"ProcessId = "
-                      f"{int(pid)}\").CommandLine")
-            done = runner(
-                ["powershell", "-NoProfile", "-NonInteractive", "-Command", script],
-                capture_output=True, text=True, timeout=5)
+            row = snapshot(int(pid))
+            command = row.get("CommandLine") if row else None
         else:
-            done = runner(["ps", "-p", str(int(pid)), "-o", "args="],
-                          capture_output=True, text=True, timeout=5)
+            command = runner(["ps", "-p", str(int(pid)), "-o", "args="],
+                             capture_output=True, text=True, timeout=5).stdout
     except (OSError, ValueError, subprocess.SubprocessError):
         return None
-    command = (done.stdout or "").strip()
+    command = (command or "").strip()
     return command or None
 
 

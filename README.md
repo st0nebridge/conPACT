@@ -292,7 +292,7 @@ The full model: [docs/security.md](docs/security.md).
 
 | | |
 |---|---|
-| **Tests** | Windows 3,212 passed (2026-10-15); Linux 2,003 passed (2026-09-25); macOS 2,178 passed (2026-09-23) |
+| **Tests** | Windows 3,264 passed (2026-10-15); Linux 2,003 passed (2026-09-25); macOS 2,178 passed (2026-09-23) |
 | **Claude Code, live** | Agent-queued and toast-driven compactions observed end to end; with the mod, an agent-queued compaction observed end to end with Remote Control off, a Desktop session compacted through `/compact`, and the band drawn in the terminal and the Desktop app |
 | **ChatGPT Desktop, live** | Sidecar compaction, turn-end arming, and a thread queueing its own compaction observed end to end |
 

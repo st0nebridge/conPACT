@@ -23,8 +23,10 @@ imports.
 | [`closure_hook.py`](../src/conpact/closure_hook.py) | The Stop hook: claim a request at most once, check the minimum size, fire, report and log; then hand the turn end to the idle notifier, ask once about Claude Code's own idle compaction, and sweep Codex threads | bridge_client, claude_idle_offer, codex_arming, compaction, context_meter, idle_arming, session_registry, settings, token_store |
 | [`spin_off.py`](../src/conpact/spin_off.py) | Is the calling session a throwaway `.claude/worktrees/...` checkout, and is the refusal switched on? | settings |
 | [`cli.py`](../src/conpact/cli.py) | The command-line surface: self-only, `/compact`-only | bridge_client, compaction, session_registry, token_store |
-| [`mcp_tools.py`](../src/conpact/mcp_tools.py) | The MCP tools: queue, cancel, hold, inspect, for the calling session on either platform | codex_caller, codex_meter, codex_threads, compaction, context_meter, idle_state, session_registry, spin_off |
-| [`codex_caller.py`](../src/conpact/codex_caller.py) | Which Codex surface started the MCP server (ChatGPT Desktop, the CLI, or conPACT's own app-server) and which Codex thread is calling it: exactly one, or a refusal | codex_active, codex_host, codex_meter, codex_threads, compaction, context_meter |
+| [`mcp_tools.py`](../src/conpact/mcp_tools.py) | The MCP tools: queue, cancel, hold, inspect, for the calling session on either platform | codex_caller, codex_meter, codex_threads, compaction, context_meter, idle_state, runtime_parent, session_registry, spin_off |
+| [`runtime_parent.py`](../src/conpact/runtime_parent.py) | Which process owns the MCP server on Windows: at most two of this installation's own launchers unwrapped, on OS evidence only; anything unverified keeps the direct parent | win_process |
+| [`win_process.py`](../src/conpact/win_process.py) | One running Windows process's parent, image path, command line and creation time, read in-process through one handle | — |
+| [`codex_caller.py`](../src/conpact/codex_caller.py) | Which Codex surface started the MCP server (ChatGPT Desktop, the CLI, or conPACT's own app-server) and which Codex thread is calling it: exactly one, or a refusal | codex_active, codex_host, codex_meter, codex_threads, compaction, context_meter, win_process |
 | [`mcp_server.py`](../src/conpact/mcp_server.py) | Stdio JSON-RPC 2.0 framing and the MCP lifecycle for those tools | mcp_tools |
 
 ### The Claude Code mod
@@ -122,7 +124,7 @@ Claude Code's own test host; the Python suite runs them too.
 | [`codex_remote.py`](../src/conpact/codex_remote.py) | Codex Remote Control: what this machine offers (read-only), and the host-side actions | codex_appserver, codex_home, codex_host |
 | [`codex_remote_cli.py`](../src/conpact/codex_remote_cli.py) | The remote-control command: `show` reads, every other command is the action typed | codex_remote |
 | [`codex_cli.py`](../src/conpact/codex_cli.py) | Merge/remove the Codex Stop hook and launch the TUI as a client of conPACT's app-server | codex_appserver, codex_home, codex_host |
-| [`codex_cli_hook.py`](../src/conpact/codex_cli_hook.py) | Run a queued compaction or arm a watch at Stop, only below conPACT's recorded app-server | codex_arming, codex_host, compaction |
+| [`codex_cli_hook.py`](../src/conpact/codex_cli_hook.py) | Run a queued compaction or arm a watch at Stop, only below conPACT's recorded app-server | codex_arming, codex_host, compaction, win_process |
 
 ## Entry points
 

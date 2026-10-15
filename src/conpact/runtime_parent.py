@@ -3,14 +3,14 @@
 @description Resolve the MCP owner through verified Windows Python launchers.
 @input OS process ancestry, this installation's interpreter and console entry
 @output The immediate owner PID; unverified wrappers retain the direct parent
-@dependencies stdlib: json, os, pathlib, re, subprocess, sys
+@dependencies conpact.win_process; stdlib: os, pathlib, re, sys
 """
-import json
 import os
 import pathlib
 import re
-import subprocess
 import sys
+
+from . import win_process
 
 
 def _command(command):
@@ -21,6 +21,19 @@ def _command(command):
 
 def _path(value):
     return str(value or '').replace('\\', '/').casefold()
+
+
+def _same(one, other):
+    """One executable: the same path, or two names for one file. The OS names an
+    image by its real path; a launcher may be started through a junction."""
+    if not (isinstance(one, str) and isinstance(other, str) and one and other):
+        return False
+    if _path(one) == _path(other):
+        return True
+    try:
+        return os.path.samefile(one, other)
+    except (OSError, ValueError):
+        return False
 
 
 def _edge(child, parent):
@@ -42,14 +55,14 @@ def resolve(rows, pid, ppid, python, entry):
             return ppid
         _, child_tail = _command(child.get('CommandLine'))
         wrapper_exe, wrapper_tail = _command(wrapper.get('CommandLine'))
-        image = _path(wrapper.get('ExecutablePath'))
-        if not image or image != _path(wrapper_exe):
+        image = wrapper.get('ExecutablePath')
+        if not _same(image, wrapper_exe):
             return parent
-        if image == _path(python):
+        if _same(image, python):
             transparent = bool(child_tail) and child_tail == wrapper_tail
-        elif image == _path(entry):
+        elif _same(image, entry):
             script, arguments = _command(child_tail)
-            transparent = _path(script) == _path(entry) and arguments == wrapper_tail
+            transparent = _same(script, entry) and arguments == wrapper_tail
         else:
             return parent
         if not transparent:
@@ -62,22 +75,18 @@ def resolve(rows, pid, ppid, python, entry):
     return parent if _edge(records.get(current), records.get(parent)) else ppid
 
 
-def _read():
-    """Read only this process and three OS ancestors, without showing a window."""
-    script = (f'$cursorPid={os.getpid()}; $rows=@(); '
-              'for($i=0; $i -lt 4 -and $cursorPid -gt 0; $i++) {'
-              '$p=Get-CimInstance Win32_Process -Filter "ProcessId=$cursorPid"; '
-              'if(!$p){break}; $rows += $p | Select-Object ProcessId,ParentProcessId,'
-              'ExecutablePath,CommandLine,@{Name="CreationDate";Expression={$_.CreationDate.ToUniversalTime().ToString("o")}}; '
-              '$cursorPid=$p.ParentProcessId }; ConvertTo-Json -InputObject @($rows) -Compress')
-    try:
-        result = subprocess.run(['powershell', '-NoProfile', '-NonInteractive', '-Command', script],
-                                capture_output=True, text=True, timeout=5,
-                                creationflags=subprocess.CREATE_NO_WINDOW)
-        rows = json.loads(result.stdout)
-        return rows if isinstance(rows, list) else []
-    except (OSError, ValueError, subprocess.SubprocessError):
-        return []
+def _read(snapshot=None):
+    """This process and up to three OS ancestors, read in-process: nothing is
+    started, so no window is shown and a busy machine cannot run it out of time."""
+    snapshot = snapshot or win_process.snapshot
+    rows, pid = [], os.getpid()
+    while len(rows) < 4 and isinstance(pid, int) and pid > 0:
+        row = snapshot(pid)
+        if not row:
+            break
+        rows.append(row)
+        pid = row['ParentProcessId']
+    return rows
 
 
 def owner(ppid, reader=None):

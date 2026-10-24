@@ -16,7 +16,7 @@
             address that selects a transport, and (injected) the way to start a
             subprocess or open a socket
 @output     a live server object whose `request` returns one reply dict per call
-@dependencies conpact.codex_ws; stdlib: json, os, pathlib, plistlib, queue,
+@dependencies conpact.codex_ws, conpact.win_packages; stdlib: json, os, pathlib, plistlib, queue,
               shutil, subprocess, sys, threading, time, uuid
 """
 from __future__ import annotations
@@ -33,7 +33,7 @@ import threading
 import time
 import uuid
 
-from . import codex_ws
+from . import codex_ws, win_packages
 
 CLIENT = {"name": "conpact", "version": "1"}
 INITIALIZE = "initialize"
@@ -253,6 +253,13 @@ def newest_build(environ=None, platform=None):
     env = os.environ if environ is None else environ
     local = env.get("LOCALAPPDATA")
     if local:
+        # Store directories normally deny enumeration. Query the current user's
+        # registration directly, and do not let cache copy times outrank it.
+        # An explicit environment is an isolated lookup, never a host OS query.
+        if env is os.environ:
+            registered = _registered_windows_runtime()
+            if registered is not None:
+                return registered
         # LOCALAPPDATA means this is a Windows-shaped environment even when
         # the Python runtime calls itself cygwin or msys.  Do not fall through
         # to the host's app bundles when that explicit install root is empty:
@@ -274,6 +281,10 @@ def newest_build(environ=None, platform=None):
     if where == "win32":
         return None
     return _newest(_bundled(env, "darwin" if where == "darwin" else "linux"))
+
+
+def _registered_windows_runtime():
+    return win_packages.runtime()
 
 
 def _windows_bundled(environ):

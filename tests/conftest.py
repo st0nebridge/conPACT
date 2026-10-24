@@ -93,7 +93,7 @@ def _isolate_user_state(request, monkeypatch, tmp_path_factory):
     from conpact import (bridge_client, closure_hook, codex_appserver, codex_env, codex_host,
                              codex_inject, codex_sidecar_window, compaction, context_meter, desktop,
                              detach, home, keychain, session_registry, settings_window, toast_view,
-                             token_store)
+                             token_store, win_packages)
     breaches = []
 
     def guard(what):
@@ -103,6 +103,8 @@ def _isolate_user_state(request, monkeypatch, tmp_path_factory):
         return refuse
 
     no_network = guard("reach the network")
+    monkeypatch.setattr(win_packages, "_api", guard("read host package registration"))
+    monkeypatch.setattr(codex_appserver, "_registered_windows_runtime", lambda: None)
     monkeypatch.setattr(token_store, "_post_token", no_network)
     # On a Mac the default credentials lookup reads the real Keychain, which
     # holds the user's live login; every test hands in its own reader.

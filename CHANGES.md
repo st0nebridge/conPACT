@@ -3,6 +3,53 @@
 Change Log Entries. Newest first.
 
 ```yaml
+id: CU-20261024-127
+type: release
+title: "conPACT 1.5.3: Windows Desktop follows its registered runtime after updates"
+description: >
+  Publish the registered Windows package resolver from CU-20261024-126 as a patch
+  release. The package and Claude Code mod are version 1.5.3. The Windows test
+  count records the verified 3287 passing tests. No setting or protocol changes.
+  Release assets are built and installed from the clean public export.
+impact: none
+affected_modules: [src/conpact/__init__.py, src/mod/.claude-plugin/plugin.json, README.md]
+related_tests: [tests/test_mcp_server.py, tests/regression/test_the_mod_compacts_in_process.py, tests/regression/test_release_installation.py]
+commit_ref: "codex/release-1.5.3"
+author: "Brandon Stonebridge"
+timestamp: "2026-10-24T18:10:36.352297+00:00"
+```
+
+```yaml
+id: CU-20261024-126
+type: fix
+title: "Resolve the registered Windows Desktop runtime without listing WindowsApps"
+description: >
+  Query current-user Codex package registration in-process through the Windows
+  package APIs. A registered compatible runtime takes precedence over timestamp
+  ranked cache copies; explicit CONPACT_CODEX_REAL pins remain authoritative.
+  Package versions are compared numerically, missing executables are skipped,
+  native failures retain existing fallbacks and buffer growth retries are bounded.
+  Explicitly supplied environments never borrow the host's package registration.
+  WindowsApps denied enumeration on the affected machine, causing the previous
+  glob fallback to miss Desktop 0.164 and keep the cache's 0.163 runtime; Desktop
+  then failed its startup policy handshake with reason=protocol.
+impact: high
+affected_modules: [src/conpact/codex_appserver.py, src/conpact/win_packages.py]
+related_tests: [tests/regression/test_desktop_package_runtime.py, tests/test_win_packages.py, tests/regression/test_sidecar_follows_codex_updates.py]
+commit_ref: "codex/fix-desktop-runtime-discovery"
+author: "Brandon Stonebridge"
+timestamp: "2026-10-24T18:04:00.058886+00:00"
+verification: >
+  Regression observed failing before implementation. Focused verification passed
+  1334 tests (3 skipped); full suite passed 3287 tests (4 skipped, 10 deselected)
+  with python -m pytest -m "not real_ui" -q --tb=short --basetemp=tmp/package-full
+  --cov=conpact.win_packages --cov=conpact.codex_appserver --cov-branch.
+  New resolver statement/branch coverage 100%; structure score 100/100. Real Store launch
+  opened ChatGPT through the sidecar with runtime 0.164.0-alpha.11.1 and successful
+  model/list and thread/list responses, without startup policy failure.
+```
+
+```yaml
 id: CU-20261015-125
 type: release
 title: "conPACT 1.5.2: Windows process reads are made in-process, so a busy machine no longer binds an MCP server to its launcher or turns the Codex CLI Stop hook away"
@@ -29,6 +76,17 @@ verification: >
   server reports it), the published-tree and docs checks pass. Full suite in
   the checkout: 3,264 passed, 4 skipped, 10 deselected. The release is built from the publish commit, scanned,
   and tested and installed from its own export before it is uploaded.
+  Published 2026-10-15 as afd52e0 on main, appended to 1.5.1's 15fbaa7, with
+  the tag v1.5.2 and its release, built from the development commit 6aaa3ef.
+  The strict scan of the development tree found only the maintainer's own
+  files (HANDOFF.md, logs/), which the publish tree leaves out; the scan of
+  the tree, the commit, the tag, the notes and the unpacked wheel and source
+  archive found nothing. From its export, outside any checkout, 3,261 tests
+  passed (7 skipped: no git checkout, or POSIX-only), the mod's 128 passed
+  with strict validation, and the wheel installed in a fresh environment
+  answered --help and, started through that environment's launcher, named
+  the process that started it. The release's files were downloaded back and
+  matched their sums before the draft was published.
 ```
 
 ```yaml

@@ -1,6 +1,6 @@
 {
   "name": "conpact",
-  "version": "1.5.3",
+  "version": "1.5.4",
   "description": "Lets a Claude Code agent compact its own session at the end of a turn, in-process: no Remote Control and no /compact typed into the session.",
   "author": { "name": "Brandon Stonebridge" },
   "license": "MIT",

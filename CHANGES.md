@@ -3,6 +3,51 @@
 Change Log Entries. Newest first.
 
 ```yaml
+id: CU-20261028-129
+type: release
+title: "conPACT 1.5.4: a Codex thread's refused heartbeats no longer bring its idle toast back"
+description: >
+  Publish the fix from CU-20261028-128 as a patch release: a Codex turn that the
+  server refuses for a spent usage limit is no longer counted as a model call,
+  so Silence and Not now hold on a thread whose automation keeps firing. The
+  package and Claude Code mod are version 1.5.4. The Windows test count records
+  the verified 3300 passing tests. No setting or protocol changes.
+impact: none
+affected_modules: [src/conpact/__init__.py, src/mod/.claude-plugin/plugin.json, README.md]
+related_tests: [tests/regression/test_refused_codex_turns_are_not_calls.py, tests/test_codex_window.py]
+commit_ref: "codex/release-1.5.4"
+author: "Brandon Stonebridge"
+timestamp: "2026-10-28T00:00:00+00:00"
+```
+
+```yaml
+id: CU-20261028-128
+type: fix
+title: "A Codex turn refused for the usage limit is not a model call"
+description: >
+  An automation heartbeat in a thread past its usage limit starts a turn every
+  five minutes that the server refuses at once, yet Codex still writes a
+  token_count record for it. codex_window.last_call counted that as a call, so
+  the idle thread looked freshly used: a Silence (which ends when the thread is
+  used) was cleared on the next turn/completed and the watcher re-armed, and a
+  dismissed toast came back. last_call now skips the records of a turn whose
+  task_complete carries codex_error_info usage_limit_exceeded. Other errors
+  still count their calls.
+impact: low
+affected_modules: [src/conpact/codex_window.py]
+related_tests: [tests/regression/test_refused_codex_turns_are_not_calls.py, tests/test_codex_window.py]
+commit_ref: "feature/ignore-refused-codex-turns"
+author: "Claude Sonnet 5.5 (agent)"
+timestamp: "2026-10-28T00:00:00+00:00"
+verification: >
+  Found in the live idle log: one thread re-armed every 5 minutes via
+  sidecar turn/completed with context_tokens fixed at 265656; its rollout shows
+  each cycle is an automation_heartbeat_scheduled turn ending in
+  usage_limit_exceeded. The new regression test failed before the change and
+  passes after; the full suite passed (3300 passed, 5 skipped).
+```
+
+```yaml
 id: CU-20261024-127
 type: release
 title: "conPACT 1.5.3: Windows Desktop follows its registered runtime after updates"
@@ -17,6 +62,16 @@ related_tests: [tests/test_mcp_server.py, tests/regression/test_the_mod_compacts
 commit_ref: "codex/release-1.5.3"
 author: "Brandon Stonebridge"
 timestamp: "2026-10-24T18:10:36.352297+00:00"
+verification: >
+  Published v1.5.3 as public commit 01a6d72ed303d5ca2b1f243ac2558128ea13d2d5,
+  built from development commit 1f594b54cd56ab7ee000065f42041ea1e8650b69.
+  The strict release scan found nothing in the complete tree, commit, annotated
+  tag, release notes or unpacked packages. From an export outside every checkout,
+  3284 tests passed (7 skipped, 10 deselected); 128 mod tests and strict plugin
+  validation passed. The wheel installed and ran from an isolated profile, and
+  all 74 wheel Python modules matched the public commit byte for byte. Remote
+  main and tag were verified; uploaded wheel, source archive and checksums were
+  downloaded and matched before the draft was published as latest.
 ```
 
 ```yaml

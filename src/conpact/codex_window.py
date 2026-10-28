@@ -58,6 +58,7 @@ TTL_IS_MEASURED_NOT_DECLARED = True
 # off it (context_meter.entries_from_end grows its window until a line fits).
 MAX_RECORDS = codex_meter.MAX_RECORDS
 
+USAGE_LIMIT_REFUSAL = "usage_limit_exceeded"
 USAGE = "token_usage_record"
 COUNT = "token_count"
 
@@ -84,18 +85,47 @@ def _kind(record) -> str | None:
     return None
 
 
+def _refusal(record) -> bool:
+    """Does this end a turn the server refused for a spent usage limit?
+
+    Such a turn never reaches the model, yet Codex still writes a `token_count`
+    for it. An automation heartbeat does this every few minutes, so counting it
+    made an idle thread look freshly used.
+    """
+    payload = record.get("payload")
+    if not isinstance(payload, dict) or payload.get("type") != "task_complete":
+        return False
+    error = payload.get("error")
+    return isinstance(error, dict) and error.get("codex_error_info") == USAGE_LIMIT_REFUSAL
+
+
+def _is_turn_start(record) -> bool:
+    payload = record.get("payload")
+    return isinstance(payload, dict) and payload.get("type") == "task_started"
+
+
 def last_call(rollout_path, max_records: int = MAX_RECORDS) -> float | None:
     """When the thread last called the model, or None.
 
     Either record kind stands for a call: the usage record is written per API
     call, and the `token_count` the UI reads follows it. Whichever is nearest the
     end is the most recent evidence that the thread was talking to the model,
-    which is what the cache lifetime runs from.
+    which is what the cache lifetime runs from. Records of a turn refused for
+    the usage limit are not calls (see `_refusal`).
     """
+    refused = False
     for record in context_meter.entries_from_end(rollout_path):
         max_records -= 1
         if max_records < 0:
             return None
+        if _refusal(record):
+            refused = True              # walking backwards: its records precede it
+            continue
+        if refused and _is_turn_start(record):
+            refused = False
+            continue
+        if refused:
+            continue
         if _kind(record) is None:
             continue
         when = parse_timestamp(record.get("timestamp"))

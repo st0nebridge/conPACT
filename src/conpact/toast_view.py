@@ -25,7 +25,7 @@
 @input      a controller with model() / poll() / act(action) / progress()
 @output     a window on screen until the controller or the user closes it
 @dependencies conpact.desktop, conpact.detach, conpact.idle_state,
-              conpact.toast_text, conpact.ui_style, conpact.settings and
+              conpact.tk_runtime, conpact.toast_text, conpact.ui_style, conpact.settings and
               conpact.settings_window (lazily); stdlib: argparse, os, queue,
               sys, threading, time, tkinter
 """
@@ -38,7 +38,7 @@ import sys
 import threading
 import time
 
-from . import desktop, detach, idle_state, toast_text
+from . import desktop, detach, idle_state, tk_runtime, toast_text
 from .ui_style import FONT, FONT_STRONG, PALETTES, label_button  # noqa: F401 (PALETTES: the toast's theme)
 
 WIDTH = 380
@@ -313,6 +313,7 @@ def present(controller, clock=None) -> None:
     """
     import tkinter as tk
     desktop.dpi_aware()
+    tk_runtime.prepare()                    # Tcl's library, when run from a venv
     with desktop.NoActivation() as keyboard:   # before Tk makes any window
         root = tk.Tk()
         root.withdraw()

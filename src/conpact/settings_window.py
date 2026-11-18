@@ -16,7 +16,7 @@
 @input      the user's typing and clicks; the saved settings
 @output     a window on screen until closed; settings saved through conpact.settings
 @dependencies conpact.claude_idle_compaction, conpact.desktop, conpact.detach, conpact.home,
-              conpact.settings, conpact.toast_text, conpact.ui_style; stdlib: os, pathlib, sys, tkinter
+              conpact.settings, conpact.tk_runtime, conpact.toast_text, conpact.ui_style; stdlib: os, pathlib, sys, tkinter
 """
 from __future__ import annotations
 
@@ -24,7 +24,7 @@ import os
 import pathlib
 import sys
 
-from . import claude_idle_compaction, desktop, detach, home, settings, toast_text, ui_style
+from . import claude_idle_compaction, desktop, detach, home, settings, tk_runtime, toast_text, ui_style
 
 MODULE = "conpact.settings_window"
 SRC_ROOT = str(pathlib.Path(__file__).resolve().parents[1])
@@ -341,6 +341,7 @@ class SettingsView:
 def run() -> None:
     """Show the window and return once it is closed."""
     import tkinter as tk
+    tk_runtime.prepare()                    # Tcl's library, when run from a venv
     desktop.dpi_aware()
     root = tk.Tk()
     root.withdraw()

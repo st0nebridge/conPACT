@@ -15,7 +15,7 @@
 @input      the user's click; what `codex_sidecar_install.status` reads
 @output     a window on screen until closed; the sidecar installed or removed
 @dependencies conpact.codex_sidecar_install, conpact.desktop,
-              conpact.detach, conpact.ui_style; stdlib: os, pathlib, sys,
+              conpact.detach, conpact.tk_runtime, conpact.ui_style; stdlib: os, pathlib, sys,
               tkinter
 """
 from __future__ import annotations
@@ -25,7 +25,7 @@ import pathlib
 import sys
 
 from . import codex_sidecar_install as install_module
-from . import desktop, detach, ui_style
+from . import desktop, detach, tk_runtime, ui_style
 
 MODULE = "conpact.codex_sidecar_window"
 SRC_ROOT = str(pathlib.Path(__file__).resolve().parents[1])
@@ -160,6 +160,7 @@ class SidecarView:
 
 def run() -> None:                     # pragma: no cover - exercised as -m
     import tkinter as tk
+    tk_runtime.prepare()                    # Tcl's library, when run from a venv
     root = tk.Tk()
     try:
         SidecarView(root, Panel(), ui_style.PALETTES[desktop.theme()],

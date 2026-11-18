@@ -13,6 +13,12 @@ import window_guard
 
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "src"))
 
+# Tests make Tk roots of their own, so they need Tcl's library found the way the
+# windows find it (CU-20261117-130): in a uv venv, a Tk that cannot find init.tcl
+# skips one window test and hangs the next one in root.update().
+from conpact import tk_runtime  # noqa: E402
+tk_runtime.prepare()
+
 # The home every test runs under, and every process a test starts inherits.
 # The fixture below patches module constants, which reaches nothing outside this
 # process: on 2026-09-23 a test that ran `tools/settings.py --help` as a child

@@ -34,7 +34,12 @@ Alternatively, `pip install -e .` installs the same entry points. They include
 The toast and the settings window are Tk, which ships with Python on Windows and
 with the python.org installer on macOS. Some Linux distributions package it
 separately (`python3-tk` on Debian and Ubuntu); without it everything works
-except the windows themselves.
+except the windows themselves. Homebrew's Python on macOS leaves it out too
+(`brew install python-tk@3.13`); the Python uv installs includes it, and conPACT
+points Tcl at that interpreter's library itself when it runs from a uv tool's
+virtual environment. Registering the MCP server and Stop hook with the uv tool's
+interpreter (`~/.local/share/uv/tools/conpact/bin/python`) keeps them off any
+one Homebrew Python.
 
 On macOS and Linux, read `python` as `python3` in the commands in these pages.
 

@@ -3,6 +3,28 @@
 Change Log Entries. Newest first.
 
 ```yaml
+id: CU-20261117-130
+type: fix
+title: "The toast and settings window open when conPACT runs from a uv tool venv"
+description: >
+  Installed with `uv tool install --editable .` (setup.md's uv route), conPACT
+  runs in a venv made on uv's standalone CPython. Tcl looks for init.tcl
+  relative to the venv's prefix, finds none, and tk.Tk() raised "Can't find a
+  usable init.tcl", so no toast, settings window or sidecar window could open.
+  New module tk_runtime.prepare() points TCL_LIBRARY and TK_LIBRARY at the base
+  interpreter's newest Tcl/Tk library, found by looking, before each process's
+  first tk.Tk() (toast_view, settings_window, codex_sidecar_window). It does
+  nothing outside a venv, when the user set either variable, or when the base
+  has no Tcl library, so other installs are unchanged.
+impact: low
+affected_modules: [src/conpact/tk_runtime.py, src/conpact/toast_view.py, src/conpact/settings_window.py, src/conpact/codex_sidecar_window.py, tests/conftest.py, docs/setup.md]
+related_tests: [tests/regression/test_tk_finds_its_library_in_a_venv.py]
+commit_ref: "feature/tk-in-venv"
+author: "Lance Sandino"
+timestamp: "2026-11-17T00:00:00+00:00"
+```
+
+```yaml
 id: CU-20261028-129
 type: release
 title: "conPACT 1.5.4: a Codex thread's refused heartbeats no longer bring its idle toast back"
